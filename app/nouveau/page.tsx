@@ -1,151 +1,144 @@
 'use client'
-import { useState, useEffect, useRef } from "react"
-import { useSession } from "next-auth/react"
-import VoiceRecorder from "@/components/VoiceRecorder"
-import GenerationPreview from "@/components/GenerationPreview"
-import AppTabs from "@/components/AppTabs"
+import { useEffect, useState } from "react"
+import Link from "next/link"
 import dynamic from "next/dynamic"
-import { VILLES_VAR, searchVilles, findVilleByName, type VilleVar } from "@/lib/villes-var"
+import VoiceRecorder from "@/components/VoiceRecorder"
+import CommuneSensCombobox from "@/components/CommuneSensCombobox"
+import {
+  TYPE_CONTROLE_LABELS,
+  AVIS_LABELS,
+  PRETRAITEMENT_LABELS,
+  TRAITEMENT_LABELS,
+  REJET_LABELS,
+  POINTS_CONTROLES_STANDARDS,
+  prochaineEcheanceParDefaut,
+  type TypeControle,
+  type AvisConformite,
+  type UsagerSPANC,
+  type FiliereSPANC,
+  type RapportSPANC,
+  type TypePretraitement,
+  type TypeTraitement,
+  type TypeRejet,
+  type StatutPointControle,
+} from "@/lib/types/spanc"
+import { findCommuneByName } from "@/lib/communes-sens"
 
-const PDFDownloadButton = dynamic(() => import("@/components/RealisationPDF"), { ssr: false })
-const PDFPreviewModal = dynamic(() => import("@/components/PDFPreviewModal"), { ssr: false })
-const DriveSaveButton = dynamic(() => import("@/components/DriveSaveButton"), { ssr: false })
-import SitePreviewModal from "@/components/SitePreviewModal"
+const RapportSPANCDownloadButton = dynamic(() => import("@/components/RapportSPANCPDF"), { ssr: false })
 
-type Step = 'capture' | 'extracting' | 'validate' | 'generating' | 'preview' | 'publishing' | 'done'
+type Step = 'saisie' | 'generating' | 'verif' | 'rapport' | 'sending' | 'done'
 
-const TYPES = [
-  { v: 'Contrôle de bon fonctionnement ANC', icon: '✅' },
-  { v: 'Diagnostic ANC (vente immobilière)', icon: '🏠' },
-  { v: 'Contrôle de conception (avant travaux)', icon: '📐' },
-  { v: 'Contrôle de réalisation (après travaux)', icon: '🛠️' },
-  { v: 'Contrôle d\'installation neuve', icon: '🆕' },
-  { v: 'Vidange fosse toutes eaux / septique', icon: '🛢' },
-  { v: 'Réhabilitation installation ANC', icon: '🔧' },
-  { v: 'Entretien filière de traitement', icon: '⚙' },
-]
-
-const STEPPER_STEPS = [
-  { key: 'capture', label: 'Dictée & Photos', icon: '🎤' },
-  { key: 'validate', label: 'Vérification', icon: '✅' },
-  { key: 'preview', label: 'Rapport', icon: '📄' },
+const STEPPER = [
+  { key: 'saisie', label: 'Saisie & Photos', icon: '🎤' },
+  { key: 'verif', label: 'Vérification', icon: '✅' },
+  { key: 'rapport', label: 'Rapport', icon: '📄' },
   { key: 'done', label: 'Terminé', icon: '🎉' },
 ]
 
-function getStepperIndex(step: Step): number {
-  if (step === 'capture' || step === 'extracting') return 0
-  if (step === 'validate' || step === 'generating') return 1
-  if (step === 'preview' || step === 'publishing') return 2
-  if (step === 'done') return 3
-  return 0
+function stepperIdx(s: Step): number {
+  if (s === 'saisie') return 0
+  if (s === 'generating' || s === 'verif') return 1
+  if (s === 'rapport' || s === 'sending') return 2
+  return 3
 }
 
-export default function NouveauPage() {
-  const { data: session } = useSession()
-  const [step, setStep] = useState<Step>('capture')
+type PhotoItem = { file: File; dataUrl: string; preview: string; legende: string }
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(r.result as string)
+    r.onerror = reject
+    r.readAsDataURL(file)
+  })
+}
+
+async function compressImage(file: File, maxDim = 1600, quality = 0.8): Promise<File> {
+  if (!file.type.startsWith('image/')) return file
+  const dataUrl = await fileToDataUrl(file)
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      let { width, height } = img
+      if (width > maxDim || height > maxDim) {
+        if (width >= height) { height = Math.round(height * maxDim / width); width = maxDim }
+        else { width = Math.round(width * maxDim / height); height = maxDim }
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width; canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return reject(new Error('Canvas non supporté'))
+      ctx.drawImage(img, 0, 0, width, height)
+      canvas.toBlob(
+        blob => {
+          if (!blob) return reject(new Error('Compression échouée'))
+          resolve(new File([blob], file.name.replace(/\.(heic|heif|png|webp)$/i, '.jpg'), { type: 'image/jpeg' }))
+        },
+        'image/jpeg', quality,
+      )
+    }
+    img.onerror = () => reject(new Error('Lecture image impossible'))
+    img.src = dataUrl
+  })
+}
+
+export default function NouveauControleSPANCPage() {
+  const [step, setStep] = useState<Step>('saisie')
   const [error, setError] = useState('')
 
-  // Champs
-  const [transcription, setTranscription] = useState('')
-  const [typeIntervention, setTypeIntervention] = useState('Contrôle de bon fonctionnement ANC')
+  // Type de contrôle
+  const [typeControle, setTypeControle] = useState<TypeControle>('periodique')
+
+  // Usager
+  const [nom, setNom] = useState('')
+  const [prenom, setPrenom] = useState('')
   const [adresse, setAdresse] = useState('')
-  const [ville, setVille] = useState('')
   const [codePostal, setCodePostal] = useState('')
-  const [dateIntervention, setDateIntervention] = useState(new Date().toISOString().split('T')[0])
-  const [clientNom, setClientNom] = useState('')
-  const [clientEmail, setClientEmail] = useState('')
-  const [technicienNom, setTechnicienNom] = useState('')
-  const [editTech, setEditTech] = useState(false)
-  type PhotoItem = { file: File; dataUrl: string; preview: string; legende: string }
+  const [commune, setCommune] = useState('')
+  const [sectionCadastrale, setSectionCadastrale] = useState('')
+  const [numeroParcelle, setNumeroParcelle] = useState('')
+  const [email, setEmail] = useState('')
+  const [telephone, setTelephone] = useState('')
+  const [nbPieces, setNbPieces] = useState<number | ''>('')
+
+  // Filière
+  const [typePretraitement, setTypePretraitement] = useState<TypePretraitement | ''>('')
+  const [volumePretraitement, setVolumePretraitement] = useState<number | ''>('')
+  const [typeTraitement, setTypeTraitement] = useState<TypeTraitement | ''>('')
+  const [typeRejet, setTypeRejet] = useState<TypeRejet | ''>('')
+  const [dateInstallation, setDateInstallation] = useState('')
+  const [derniereVidange, setDerniereVidange] = useState('')
+
+  // Contrôle terrain
+  const [checkboxes, setCheckboxes] = useState<Record<string, boolean>>({})
+  const [niveauBoues, setNiveauBoues] = useState(20)
+  const [avisAgent, setAvisAgent] = useState<AvisConformite>('conforme')
+  const [dictee, setDictee] = useState('')
   const [photos, setPhotos] = useState<PhotoItem[]>([])
 
-  // Résultats IA
-  const [rapport, setRapport] = useState<any>(null)
-  const [seo, setSeo] = useState<any>(null)
-  const [publishedSlug, setPublishedSlug] = useState('')
-  const [emailSent, setEmailSent] = useState(false)
-  const [emailSending, setEmailSending] = useState(false)
-  const [showPdfPreview, setShowPdfPreview] = useState(false)
-  const [showSitePreview, setShowSitePreview] = useState(false)
+  // Technicien & date
+  const [technicien, setTechnicien] = useState('')
+  const [editTech, setEditTech] = useState(false)
+  const [dateControle, setDateControle] = useState(new Date().toISOString().slice(0, 10))
 
-  // Persist nom technicien
+  // Rapport résultat
+  const [rapport, setRapport] = useState<RapportSPANC | null>(null)
+
+  // Email envoyé
+  const [emailSent, setEmailSent] = useState(false)
+
   useEffect(() => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem('spanc_technicien') : null
-    if (saved) setTechnicienNom(saved)
+    if (saved) setTechnicien(saved)
     else setEditTech(true)
   }, [])
   useEffect(() => {
-    if (technicienNom && typeof window !== 'undefined') localStorage.setItem('spanc_technicien', technicienNom)
-  }, [technicienNom])
+    if (technicien && typeof window !== 'undefined') localStorage.setItem('spanc_technicien', technicien)
+  }, [technicien])
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') localStorage.removeItem('spanc_draft')
-  }, [])
-
-  // Animation progressive écran IA
-  const GEN_STEPS = [
-    '🎙️ Analyse de la dictée…',
-    '📝 Structuration du rapport…',
-    '⚙️ Identification des phases…',
-    '📊 Génération du tableau d\'analyse…',
-    '🏷️ Optimisation SEO local…',
-    '🔗 Maillage interne…',
-    '❓ Rédaction FAQ…',
-    '📦 Assemblage JSON-LD…',
-    '✨ Finalisation…',
-  ]
-  const [genStepIdx, setGenStepIdx] = useState(0)
-  useEffect(() => {
-    if (step !== 'generating') return
-    setGenStepIdx(0)
-    const interval = setInterval(() => setGenStepIdx(i => (i + 1) % GEN_STEPS.length), 3500)
-    return () => clearInterval(interval)
-  }, [step])
-
-  async function fileToDataUrl(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result as string)
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
-  }
-
-  async function compressImage(file: File, maxDim = 1920, quality = 0.82): Promise<File> {
-    if (!file.type.startsWith('image/')) return file
-    const dataUrl = await fileToDataUrl(file)
-    return new Promise((resolve, reject) => {
-      const img = new Image()
-      img.onload = () => {
-        let { width, height } = img
-        if (width > maxDim || height > maxDim) {
-          if (width >= height) { height = Math.round(height * maxDim / width); width = maxDim }
-          else { width = Math.round(width * maxDim / height); height = maxDim }
-        }
-        const canvas = document.createElement('canvas')
-        canvas.width = width; canvas.height = height
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return reject(new Error('Canvas non supporté'))
-        ctx.drawImage(img, 0, 0, width, height)
-        canvas.toBlob(
-          blob => {
-            if (!blob) return reject(new Error('Compression échouée'))
-            const compressed = new File([blob], file.name.replace(/\.(heic|heif|png|webp)$/i, '.jpg'), { type: 'image/jpeg' })
-            resolve(compressed)
-          },
-          'image/jpeg',
-          quality
-        )
-      }
-      img.onerror = () => reject(new Error('Lecture image impossible'))
-      img.src = dataUrl
-    })
-  }
-
-  function defaultLegende(index: number) {
-    if (index === 0) return 'Photo avant intervention'
-    if (index === 1) return 'Photo après intervention'
-    return `Photo ${index + 1}`
+  function selectCommune(c: { nom: string; cp: string }) {
+    setCommune(c.nom)
+    if (!codePostal) setCodePostal(c.cp)
   }
 
   async function addPhoto(file: File | null) {
@@ -154,239 +147,185 @@ export default function NouveauPage() {
       const compressed = await compressImage(file)
       const dataUrl = await fileToDataUrl(compressed)
       const preview = URL.createObjectURL(compressed)
-      setPhotos(prev => [...prev, { file: compressed, dataUrl, preview, legende: defaultLegende(prev.length) }])
+      setPhotos(prev => [...prev, { file: compressed, dataUrl, preview, legende: `Photo ${prev.length + 1}` }])
     } catch (e: any) {
-      setError(`Erreur photo : ${e.message || 'compression impossible'}`)
+      setError(`Erreur photo : ${e.message}`)
     }
   }
-
-  function updatePhotoLegende(i: number, legende: string) {
-    setPhotos(prev => prev.map((p, idx) => idx === i ? { ...p, legende } : p))
+  function removePhoto(i: number) { setPhotos(prev => prev.filter((_, idx) => idx !== i)) }
+  function setLegende(i: number, l: string) {
+    setPhotos(prev => prev.map((p, idx) => idx === i ? { ...p, legende: l } : p))
   }
 
-  function removePhoto(i: number) {
-    setPhotos(prev => prev.filter((_, idx) => idx !== i))
+  const showFiliere = typeControle !== 'conception'
+  const showCheckboxes = typeControle === 'periodique' || typeControle === 'vente'
+
+  function buildUsager(): UsagerSPANC {
+    return {
+      nom, prenom, adresse, codePostal, commune,
+      sectionCadastrale, numeroParcelle,
+      email: email || undefined,
+      telephone: telephone || undefined,
+      nbPiecesPrincipales: typeof nbPieces === 'number' ? nbPieces : undefined,
+    }
   }
-
-  function movePhoto(i: number, dir: -1 | 1) {
-    setPhotos(prev => {
-      const next = [...prev]
-      const j = i + dir
-      if (j < 0 || j >= next.length) return prev
-      ;[next[i], next[j]] = [next[j], next[i]]
-      return next
-    })
-  }
-
-  async function handleExtract() {
-    setError('')
-    if (!technicienNom) { setError('Indique ton nom de technicien.'); return }
-    if (!transcription || transcription.trim().length < 20) { setError('Dicte ou tape au moins quelques phrases sur l\'intervention.'); return }
-    if (photos.length === 0) { setError('Ajoute au moins une photo.'); return }
-
-    setStep('extracting')
-    try {
-      const res = await fetch('/api/extract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcription }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Extraction échouée')
-      if (data.type_intervention) setTypeIntervention(data.type_intervention)
-      if (data.ville) setVille(data.ville)
-      if (data.code_postal) setCodePostal(data.code_postal)
-      if (data.adresse) setAdresse(data.adresse)
-      if (data.client_nom) setClientNom(data.client_nom)
-      if (data.client_email) setClientEmail(data.client_email)
-      if (data.warning) setError(`⚠ ${data.warning}`)
-      setStep('validate')
-    } catch (e: any) {
-      setError(`Erreur extraction : ${e.message}`)
-      setStep('capture')
+  function buildFiliere(): FiliereSPANC {
+    return {
+      typePretraitement: typePretraitement || undefined,
+      volumePretraitement: typeof volumePretraitement === 'number' ? volumePretraitement : undefined,
+      typeTraitement: typeTraitement || undefined,
+      typeRejet: typeRejet || undefined,
+      dateInstallation: dateInstallation || undefined,
+      derniereVidange: derniereVidange || undefined,
+      niveauBoues,
     }
   }
 
   async function handleGenerate() {
-    if (!transcription || !typeIntervention || !ville) {
-      setError('Renseignez la dictée, le type et la ville.')
-      return
-    }
-    setError(''); setStep('generating')
+    setError('')
+    if (!technicien) { setError('Indique ton nom de technicien.'); return }
+    if (!commune) { setError('Renseigne la commune.'); return }
+    if (dictee.trim().length < 20) { setError('Dicte au moins quelques phrases sur le contrôle.'); return }
+
+    setStep('generating')
     try {
-      const res = await fetch('/api/generate', {
+      const res = await fetch('/api/spanc/rapport', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcription, type_intervention: typeIntervention, ville, code_postal: codePostal }),
+        body: JSON.stringify({
+          typeControle,
+          usager: buildUsager(),
+          filiere: buildFiliere(),
+          dictee,
+          checkboxes,
+          niveauBoues,
+          avisAgent,
+          technicien,
+          dateControle,
+        }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Génération échouée')
-      setRapport(data.rapport); setSeo(data.seo)
-      setStep('preview')
+      if (!res.ok) throw new Error(data.error || 'Erreur génération')
+      const fullRapport: RapportSPANC = {
+        id: data.rapport.numeroRapport,
+        ...data.rapport,
+        photos: photos.map(p => p.dataUrl),
+      }
+      setRapport(fullRapport)
+      setStep('verif')
     } catch (e: any) {
-      setError(`Erreur IA : ${e.message}`)
-      setStep('validate')
+      setError(`Erreur : ${e.message}`)
+      setStep('saisie')
     }
   }
 
-  async function handleSendToClient() {
-    if (!clientEmail) { setError('Email client manquant.'); return }
-    setEmailSending(true); setError('')
+  function patchRapport<K extends keyof RapportSPANC>(key: K, value: RapportSPANC[K]) {
+    if (!rapport) return
+    setRapport({ ...rapport, [key]: value })
+  }
+
+  function patchPointControle(i: number, patch: Partial<RapportSPANC['pointsControles'][number]>) {
+    if (!rapport) return
+    const next = [...rapport.pointsControles]
+    next[i] = { ...next[i], ...patch }
+    setRapport({ ...rapport, pointsControles: next })
+  }
+
+  async function handleSendEmail() {
+    if (!rapport) return
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) { setError('Email usager invalide.'); return }
+    setStep('sending')
+    setError('')
     try {
-      const res = await fetch('/api/notify-client', {
+      const res = await fetch('/api/spanc/email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientEmail, clientNom, technicienNom, ville, dateIntervention }),
+        body: JSON.stringify({
+          rapport,
+          photos: photos.map(p => ({ url: p.dataUrl, legende: p.legende })),
+          to: email,
+        }),
       })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Erreur envoi')
-      }
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur envoi')
       setEmailSent(true)
-    } catch (e: any) {
-      setError(`Erreur envoi : ${e.message}`)
-    } finally {
-      setEmailSending(false)
-    }
-  }
-
-  async function handlePublish() {
-    setStep('publishing'); setError('')
-    if (photos.length === 0) {
-      setError('Au moins une photo est requise.'); setStep('preview'); return
-    }
-    const totalBytes = photos.reduce((sum, p) => sum + p.file.size, 0)
-    if (totalBytes > 4 * 1024 * 1024) {
-      setError(`Photos trop lourdes (${(totalBytes / 1024 / 1024).toFixed(1)} MB). Retire les plus grandes.`)
-      setStep('preview'); return
-    }
-    const formData = new FormData()
-    const escapeHtml = (s: string) => s
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
-    const galleryHtml = photos.length > 1
-      ? `<section class="content-block gallery-block"><h2>Photos de l'intervention</h2><p>Ces photos documentent les étapes clés sur site (avant, pendant, après).</p><div class="photo-grid">${photos.map((p, i) => `<figure class="photo-card"><img src="{PHOTO_${i + 1}_URL}" alt="${escapeHtml(p.legende || `Photo ${i + 1}`)}" loading="lazy"><figcaption>${escapeHtml(p.legende || `Photo ${i + 1}`)}</figcaption></figure>`).join('')}</div></section>`
-      : ''
-    const contentWithContainers = `${seo.resume_rich_snippet ? `<section class="content-block resume-block"><h2>Resume de l'intervention</h2><p>${escapeHtml(seo.resume_rich_snippet)}</p></section>` : ''}${seo.contenu_principal || ''}${galleryHtml}`
-    formData.append('title', seo.titre_h1)
-    formData.append('slug', seo.slug || '')
-    formData.append('service_type', typeIntervention)
-    formData.append('location', ville)
-    formData.append('intervention_city', ville)
-    formData.append('postal_code', codePostal)
-    formData.append('intervention_date', dateIntervention)
-    formData.append('description', seo.meta_description)
-    formData.append('meta_keywords', (seo.meta_keywords || []).join(', '))
-    formData.append('content', contentWithContainers)
-    formData.append('faq_json', JSON.stringify({ "@context": "https://schema.org", "@type": "FAQPage", "mainEntity": seo.faq.map((f: any) => ({ "@type": "Question", "name": f.question, "acceptedAnswer": { "@type": "Answer", "text": f.reponse } })) }))
-    formData.append('jsonld', JSON.stringify(seo.jsonld || {}))
-    formData.append('related_services_json', JSON.stringify(seo.related_services || []))
-    formData.append('is_published', 'true')
-    formData.append('transcription', transcription || '')
-    formData.append('rapport_json', JSON.stringify(rapport || {}))
-    formData.append('seo_json', JSON.stringify(seo || {}))
-    formData.append('client_nom', clientNom || '')
-    formData.append('client_email', clientEmail || '')
-    formData.append('client_adresse', `${adresse || ''} ${codePostal || ''} ${ville || ''}`.trim())
-    formData.append('before_image', photos[0].file)
-    formData.append('after_image', (photos[1] || photos[0]).file)
-    photos.slice(2).forEach((p, i) => formData.append(`extra_image_${i}`, p.file))
-    try {
-      const res = await fetch('/api/publish', { method: 'POST', body: formData })
-      const txt = await res.text()
-      let data: any = null
-      try { data = JSON.parse(txt) } catch {}
-      if (!res.ok) {
-        const msg = data ? (typeof data === 'string' ? data : (data.error || JSON.stringify(data))) : txt.slice(0, 300)
-        throw new Error(msg)
-      }
-      const slug = data?.slug || seo?.slug || ''
-      setPublishedSlug(slug)
-      setTranscription('')
-      setRapport(null); setSeo(null)
-      setClientNom(''); setClientEmail(''); setAdresse(''); setVille(''); setCodePostal('')
-      setPhotos([])
-      setEmailSent(false)
-      if (typeof window !== 'undefined') localStorage.removeItem('spanc_draft')
       setStep('done')
     } catch (e: any) {
-      setError(`Erreur publication : ${e.message}`)
-      setStep('preview')
+      setError(`Erreur envoi : ${e.message}`)
+      setStep('rapport')
     }
   }
 
-  function resetForm() {
-    setStep('capture')
-    setTranscription(''); setRapport(null); setSeo(null); setError('')
-    setClientNom(''); setClientEmail(''); setAdresse(''); setVille(''); setCodePostal('')
-    setPhotos([])
-    setEmailSent(false); setPublishedSlug('')
-    if (typeof window !== 'undefined') localStorage.removeItem('spanc_draft')
+  function resetAll() {
+    setStep('saisie')
+    setError(''); setRapport(null); setEmailSent(false)
+    setNom(''); setPrenom(''); setAdresse(''); setCodePostal(''); setCommune('')
+    setSectionCadastrale(''); setNumeroParcelle('')
+    setEmail(''); setTelephone(''); setNbPieces('')
+    setTypePretraitement(''); setVolumePretraitement('')
+    setTypeTraitement(''); setTypeRejet('')
+    setDateInstallation(''); setDerniereVidange('')
+    setCheckboxes({}); setNiveauBoues(20); setAvisAgent('conforme')
+    setDictee(''); setPhotos([])
   }
 
-  const totalMb = photos.reduce((s, p) => s + p.file.size, 0) / 1024 / 1024
-  const currentStepperIdx = getStepperIndex(step)
+  const idx = stepperIdx(step)
 
   return (
     <div className="min-h-screen bg-slate-50 pb-32">
-      {/* App tabs (rapport vs devis) */}
-      <div className="bg-white border-b border-slate-200 py-2">
-        <div className="max-w-3xl mx-auto px-4">
-          <AppTabs />
-        </div>
-      </div>
-      {/* Header */}
+      {/* Nav */}
       <nav className="bg-[#0e2a52] text-white px-4 py-3 sm:px-6 sm:py-4 shadow-lg sticky top-0 z-30">
         <div className="max-w-3xl mx-auto flex justify-between items-center gap-3">
-          <div>
-            <div className="font-black text-base sm:text-lg leading-tight">SPANC</div>
-            <div className="text-[11px] opacity-70">Nouvelle réalisation</div>
-          </div>
+          <Link href="/" className="flex items-center gap-2 text-sm hover:opacity-80">
+            <span className="text-xl">←</span>
+            <div>
+              <div className="font-black text-base sm:text-lg leading-tight">SPANC</div>
+              <div className="text-[11px] opacity-70">Nouveau contrôle</div>
+            </div>
+          </Link>
           <div className="text-right flex items-center gap-2">
             {editTech ? (
               <input
                 autoFocus
-                value={technicienNom}
-                onChange={e => setTechnicienNom(e.target.value)}
-                onBlur={() => technicienNom && setEditTech(false)}
-                onKeyDown={e => { if (e.key === 'Enter' && technicienNom) setEditTech(false) }}
+                value={technicien}
+                onChange={e => setTechnicien(e.target.value)}
+                onBlur={() => technicien && setEditTech(false)}
+                onKeyDown={e => { if (e.key === 'Enter' && technicien) setEditTech(false) }}
                 placeholder="Ton nom"
                 className="bg-white/20 placeholder:text-white/60 text-white text-sm font-semibold px-3 py-1.5 rounded-lg outline-none border border-white/30 focus:border-white"
               />
-            ) : technicienNom ? (
+            ) : technicien ? (
               <button onClick={() => setEditTech(true)} className="text-right group">
                 <div className="text-[10px] opacity-60 group-hover:opacity-100">Technicien ✎</div>
-                <div className="text-sm font-semibold">{technicienNom}</div>
+                <div className="text-sm font-semibold">{technicien}</div>
               </button>
             ) : null}
           </div>
         </div>
       </nav>
 
-      {/* STEPPER */}
+      {/* Stepper */}
       <div className="bg-white border-b border-slate-200 shadow-sm sticky top-[52px] sm:top-[60px] z-20">
         <div className="max-w-3xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            {STEPPER_STEPS.map((s, i) => {
-              const isActive = i === currentStepperIdx
-              const isDone = i < currentStepperIdx
+            {STEPPER.map((s, i) => {
+              const active = i === idx
+              const done = i < idx
               return (
                 <div key={s.key} className="flex items-center flex-1 last:flex-none">
                   <div className="flex flex-col items-center">
                     <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-bold transition-all ${
-                      isDone ? 'bg-emerald-500 text-white shadow-md' :
-                      isActive ? 'bg-[#0e2a52] text-white shadow-lg ring-4 ring-blue-100' :
+                      done ? 'bg-emerald-500 text-white shadow-md' :
+                      active ? 'bg-[#0e2a52] text-white shadow-lg ring-4 ring-blue-100' :
                       'bg-slate-100 text-slate-400 border-2 border-slate-200'
-                    }`}>
-                      {isDone ? '✓' : s.icon}
-                    </div>
+                    }`}>{done ? '✓' : s.icon}</div>
                     <span className={`text-[10px] sm:text-xs mt-1 font-semibold text-center leading-tight ${
-                      isActive ? 'text-[#0e2a52]' : isDone ? 'text-emerald-600' : 'text-slate-400'
+                      active ? 'text-[#0e2a52]' : done ? 'text-emerald-600' : 'text-slate-400'
                     }`}>{s.label}</span>
                   </div>
-                  {i < STEPPER_STEPS.length - 1 && (
+                  {i < STEPPER.length - 1 && (
                     <div className={`flex-1 h-0.5 mx-2 sm:mx-3 rounded-full transition-all ${
-                      i < currentStepperIdx ? 'bg-emerald-400' : 'bg-slate-200'
+                      i < idx ? 'bg-emerald-400' : 'bg-slate-200'
                     }`} />
                   )}
                 </div>
@@ -397,61 +336,216 @@ export default function NouveauPage() {
       </div>
 
       <main className="max-w-3xl mx-auto px-4 py-5 space-y-4">
-
-        {/* ═══════════ ÉTAPE 1 — DICTÉE + PHOTOS ═══════════ */}
-        {(step === 'capture' || step === 'extracting') && (
+        {/* ═════ ÉTAPE 1 — SAISIE ═════ */}
+        {step === 'saisie' && (
           <>
-            {/* Dictée */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-6 space-y-4">
+            {/* Type de contrôle */}
+            <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4">
               <div>
-                <h2 className="text-xl font-black text-[#0e2a52]">Raconte l&apos;intervention</h2>
-                <p className="text-sm text-slate-500 mt-1">Dicte ou tape : l&apos;IA remplira les champs.</p>
+                <h2 className="text-xl font-black text-[#0e2a52]">Type de contrôle</h2>
+                <p className="text-sm text-slate-500 mt-1">Choisis la mission du jour.</p>
               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {(Object.keys(TYPE_CONTROLE_LABELS) as TypeControle[]).map(t => {
+                  const meta = TYPE_CONTROLE_LABELS[t]
+                  return (
+                    <button key={t} type="button" onClick={() => setTypeControle(t)}
+                      className={`p-3 rounded-xl border-2 text-left transition-all ${
+                        typeControle === t
+                          ? 'border-blue-500 bg-blue-50 shadow-sm'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}>
+                      <div className="flex items-start gap-2">
+                        <span className="text-2xl leading-none">{meta.icon}</span>
+                        <div>
+                          <div className={`font-bold text-sm ${typeControle === t ? 'text-[#0e2a52]' : 'text-slate-800'}`}>{meta.label}</div>
+                          <div className="text-[11px] text-slate-500 mt-0.5">{meta.desc}</div>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
 
+            {/* Usager */}
+            <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
+              <h2 className="text-xl font-black text-[#0e2a52]">Usager & bien</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="Prénom" value={prenom} onChange={setPrenom} />
+                <Field label="Nom" value={nom} onChange={setNom} />
+                <div className="sm:col-span-2">
+                  <Field label="Adresse" value={adresse} onChange={setAdresse} placeholder="ex: 5 rue des Champs" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Commune *</label>
+                  <CommuneSensCombobox value={commune} onChange={setCommune} onSelect={selectCommune} />
+                </div>
+                <Field label="Code postal" value={codePostal} onChange={setCodePostal} placeholder="89100" />
+                <Field label="Section cadastrale" value={sectionCadastrale} onChange={setSectionCadastrale} placeholder="ex: AB" />
+                <Field label="N° parcelle" value={numeroParcelle} onChange={setNumeroParcelle} placeholder="ex: 0042" />
+                <Field label="Email" value={email} onChange={setEmail} placeholder="usager@exemple.fr" type="email" />
+                <Field label="Téléphone" value={telephone} onChange={setTelephone} placeholder="06 …" />
+                <NumberField label="Pièces principales" value={nbPieces} onChange={setNbPieces} placeholder="4" />
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Date du contrôle</label>
+                  <input type="date" value={dateControle} onChange={e => setDateControle(e.target.value)} className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2.5 text-base" />
+                </div>
+              </div>
+            </section>
+
+            {/* Filière ANC */}
+            {showFiliere && (
+              <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
+                <h2 className="text-xl font-black text-[#0e2a52]">Filière ANC</h2>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Prétraitement</label>
+                  <select value={typePretraitement} onChange={e => setTypePretraitement(e.target.value as TypePretraitement | '')} className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2.5 text-base bg-white">
+                    <option value="">— Choisir —</option>
+                    {(Object.keys(PRETRAITEMENT_LABELS) as TypePretraitement[]).map(t => (
+                      <option key={t} value={t}>{PRETRAITEMENT_LABELS[t]}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <NumberField label="Volume prétraitement (m³)" value={volumePretraitement} onChange={setVolumePretraitement} placeholder="3" />
+                  <Field label="Date d'installation" value={dateInstallation} onChange={setDateInstallation} placeholder="ex: 2014" />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Traitement</label>
+                  <select value={typeTraitement} onChange={e => setTypeTraitement(e.target.value as TypeTraitement | '')} className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2.5 text-base bg-white">
+                    <option value="">— Choisir —</option>
+                    {(Object.keys(TRAITEMENT_LABELS) as TypeTraitement[]).map(t => (
+                      <option key={t} value={t}>{TRAITEMENT_LABELS[t]}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Rejet / exutoire</label>
+                  <select value={typeRejet} onChange={e => setTypeRejet(e.target.value as TypeRejet | '')} className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2.5 text-base bg-white">
+                    <option value="">— Choisir —</option>
+                    {(Object.keys(REJET_LABELS) as TypeRejet[]).map(t => (
+                      <option key={t} value={t}>{REJET_LABELS[t]}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <Field label="Dernière vidange" value={derniereVidange} onChange={setDerniereVidange} placeholder="ex: 2023" />
+
+                {/* Slider niveau boues */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Niveau de boues</label>
+                    <span className={`text-sm font-bold ${niveauBoues <= 30 ? 'text-emerald-600' : niveauBoues <= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                      {niveauBoues}%{niveauBoues > 50 ? ' · vidange recommandée' : ''}
+                    </span>
+                  </div>
+                  <input
+                    type="range" min={0} max={100} step={5}
+                    value={niveauBoues}
+                    onChange={e => setNiveauBoues(parseInt(e.target.value))}
+                    className="w-full h-2 rounded-full appearance-none cursor-pointer bg-gradient-to-r from-emerald-400 via-amber-400 to-red-500"
+                  />
+                </div>
+              </section>
+            )}
+
+            {/* Grille de contrôle */}
+            {showCheckboxes && (
+              <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-2">
+                <h2 className="text-xl font-black text-[#0e2a52]">Grille de contrôle terrain</h2>
+                <p className="text-xs text-slate-500">Coche les points conformes.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+                  {POINTS_CONTROLES_STANDARDS.map(p => (
+                    <label key={p.key} className={`flex items-start gap-2 p-2.5 rounded-lg border-2 cursor-pointer transition ${
+                      checkboxes[p.key] ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={!!checkboxes[p.key]}
+                        onChange={e => setCheckboxes(prev => ({ ...prev, [p.key]: e.target.checked }))}
+                        className="mt-0.5 h-4 w-4 accent-emerald-600"
+                      />
+                      <span className={`text-sm ${checkboxes[p.key] ? 'text-emerald-900 font-semibold' : 'text-slate-700'}`}>{p.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Avis du technicien */}
+            <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
+              <h2 className="text-xl font-black text-[#0e2a52]">Avis du technicien</h2>
+              <p className="text-xs text-slate-500">L&apos;IA pourra réviser cet avis selon ta dictée.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {(Object.keys(AVIS_LABELS) as AvisConformite[]).map(a => {
+                  const meta = AVIS_LABELS[a]
+                  const active = avisAgent === a
+                  return (
+                    <button key={a} type="button" onClick={() => setAvisAgent(a)}
+                      className={`p-3 rounded-xl border-2 text-left transition-all ${
+                        active ? `${meta.tone} shadow-md` : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                      }`}>
+                      <div className="flex items-start gap-2">
+                        <span className="text-xl">{meta.icon}</span>
+                        <span className="font-bold text-sm">{meta.label}</span>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+
+            {/* Dictée */}
+            <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4">
+              <div>
+                <h2 className="text-xl font-black text-[#0e2a52]">Dictée du contrôle</h2>
+                <p className="text-sm text-slate-500 mt-1">Détaille état de la fosse, ventilation, épandage, rejet, dernière vidange…</p>
+              </div>
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
-                <VoiceRecorder onTranscription={t => setTranscription(prev => prev ? prev + ' ' + t : t)} />
+                <VoiceRecorder onTranscription={t => setDictee(prev => prev ? prev + ' ' + t : t)} />
               </div>
-
               <textarea
-                value={transcription}
-                onChange={e => setTranscription(e.target.value)}
-                rows={5}
-                placeholder="Ex : Contrôle de bon fonctionnement chez M. Dupont à Toulon, 5 rue des Tombades. Filière : fosse toutes eaux 3 m³ + filtre à sable. Dernière vidange 2023. Aucune odeur, aucun engorgement constaté. Accès au regard correct, exutoire vers infiltration…"
-                className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-base transition-colors"
+                value={dictee}
+                onChange={e => setDictee(e.target.value)}
+                rows={6}
+                placeholder="Dicte tes observations : état de la fosse, niveau de boues, ventilation, état de l'épandage, rejet, date dernière vidange…"
+                className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-base"
               />
               <div className="flex justify-between text-xs text-slate-400">
-                <span>{transcription.length} car.</span>
-                <span>{transcription.length < 50 ? 'Ajoute plus de détails' : '✓ OK'}</span>
+                <span>{dictee.length} car.</span>
+                <span>{dictee.length < 50 ? 'Détaille davantage' : '✓ OK'}</span>
               </div>
-            </div>
+            </section>
 
             {/* Photos */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-6 space-y-4">
+            <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-xl font-black text-[#0e2a52]">Photos</h2>
-                  <p className="text-sm text-slate-500">Avant / après — min. 1 photo</p>
+                  <p className="text-sm text-slate-500">Regards, ventilation, exutoire — min. 1 photo</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="bg-[#0e2a52] text-white text-xs font-bold w-7 h-7 rounded-full flex items-center justify-center">{photos.length}</span>
-                  {photos.length > 0 && <span className="text-[11px] text-slate-400">{totalMb.toFixed(1)} MB</span>}
-                </div>
+                <span className="bg-[#0e2a52] text-white text-xs font-bold w-7 h-7 rounded-full flex items-center justify-center">{photos.length}</span>
               </div>
 
               {photos.length > 0 && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {photos.map((p, i) => (
-                    <PhotoItemCard
-                      key={p.preview}
-                      index={i}
-                      photo={p}
-                      isFirst={i === 0}
-                      isLast={i === photos.length - 1}
-                      onLegendeChange={lg => updatePhotoLegende(i, lg)}
-                      onRemove={() => removePhoto(i)}
-                      onMoveUp={() => movePhoto(i, -1)}
-                      onMoveDown={() => movePhoto(i, 1)}
-                    />
+                    <div key={p.preview} className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={p.preview} alt={p.legende} className="w-full h-32 object-cover rounded-lg border border-slate-200" />
+                      <input
+                        value={p.legende}
+                        onChange={e => setLegende(i, e.target.value)}
+                        className="w-full text-[11px] border border-slate-200 rounded mt-1 px-1.5 py-0.5"
+                      />
+                      <button onClick={() => removePhoto(i)} type="button" aria-label="Supprimer"
+                        className="absolute top-1 right-1 bg-white/95 w-7 h-7 rounded-full text-red-600 font-bold shadow flex items-center justify-center text-sm">✕</button>
+                    </div>
                   ))}
                 </div>
               )}
@@ -470,219 +564,91 @@ export default function NouveauPage() {
                   }} className="hidden" />
                 </label>
               </div>
-            </div>
-
-            {/* Loading extraction */}
-            {step === 'extracting' && (
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 text-center space-y-3">
-                <div className="text-4xl animate-pulse">✨</div>
-                <p className="text-sm font-semibold text-blue-900">Lecture de ta dictée…</p>
-                <div className="h-1.5 bg-blue-100 rounded-full overflow-hidden max-w-xs mx-auto">
-                  <div className="h-full bg-blue-500 animate-pulse rounded-full" style={{ width: '65%' }} />
-                </div>
-              </div>
-            )}
+            </section>
           </>
         )}
 
-        {/* ═══════════ ÉTAPE 2 — VÉRIFICATION ═══════════ */}
-        {(step === 'validate' || step === 'generating') && (
-          <>
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-6 space-y-5">
-              <div>
-                <h2 className="text-xl font-black text-[#0e2a52]">Vérifie les informations</h2>
-                <p className="text-sm text-slate-500 mt-1">Pré-rempli par l&apos;IA. Corrige si besoin.</p>
-              </div>
-
-              {/* Type intervention */}
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Type d&apos;intervention</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {TYPES.map(t => (
-                    <button key={t.v} type="button"
-                      onClick={() => setTypeIntervention(t.v)}
-                      className={`p-3 rounded-xl border-2 text-left text-sm font-semibold transition-all ${
-                        typeIntervention === t.v
-                          ? 'border-blue-500 bg-blue-50 text-[#0e2a52] shadow-sm'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                      }`}>
-                      <span className="text-lg mr-1">{t.icon}</span>
-                      {t.v}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Ville */}
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Ville *</label>
-                <VilleCombobox value={ville} onSelect={(v: VilleVar) => { setVille(v.nom); setCodePostal(v.cp) }} onChange={setVille} />
-              </div>
-
-              {/* CP + Date */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Code postal</label>
-                  <input value={codePostal} onChange={e => setCodePostal(e.target.value)} placeholder="83000" inputMode="numeric" pattern="[0-9]*" className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-base transition-colors" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Date</label>
-                  <input type="date" value={dateIntervention} onChange={e => setDateIntervention(e.target.value)} className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-base transition-colors" />
-                </div>
-              </div>
-
-              {/* Adresse */}
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Adresse <span className="font-normal text-slate-400 normal-case">(optionnel)</span></label>
-                <input value={adresse} onChange={e => setAdresse(e.target.value)} placeholder="ex: 5 rue des Tombades" className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-base transition-colors" />
-              </div>
+        {/* ═════ GENERATING ═════ */}
+        {step === 'generating' && (
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-8 text-center space-y-3">
+            <div className="text-5xl animate-bounce">🤖</div>
+            <p className="text-base font-bold text-blue-900">L&apos;IA rédige votre rapport SPANC…</p>
+            <p className="text-xs text-slate-500">Analyse de la dictée, structuration des points de contrôle, évaluation de conformité…</p>
+            <div className="h-1.5 bg-blue-100 rounded-full overflow-hidden max-w-xs mx-auto">
+              <div className="h-full bg-blue-500 animate-pulse rounded-full" style={{ width: '70%' }} />
             </div>
-
-            {/* Client */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-6 space-y-4">
-              <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Client (optionnel)</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1.5">Nom</label>
-                  <input value={clientNom} onChange={e => setClientNom(e.target.value)} placeholder="M. Dupont" className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-base transition-colors" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1.5">Email</label>
-                  <input type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)} placeholder="client@exemple.fr" inputMode="email" autoCapitalize="none" autoCorrect="off" className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-base transition-colors" />
-                </div>
-              </div>
-            </div>
-
-            {/* Loading génération */}
-            {step === 'generating' && (
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 text-center space-y-3">
-                <div className="text-4xl animate-bounce">🤖</div>
-                <p className="text-sm font-bold text-blue-900">{GEN_STEPS[genStepIdx]}</p>
-                <div className="h-1.5 bg-blue-100 rounded-full overflow-hidden max-w-xs mx-auto">
-                  <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${((genStepIdx + 1) / GEN_STEPS.length) * 100}%` }} />
-                </div>
-                <p className="text-[11px] text-slate-400">~30 secondes</p>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ═══════════ ÉTAPE 3 — RAPPORT PRÊT ═══════════ */}
-        {(step === 'preview' || step === 'publishing') && rapport && seo && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-6 space-y-5">
-            <div>
-              <h2 className="text-xl font-black text-[#0e2a52]">Rapport prêt</h2>
-              <p className="text-sm text-slate-500 mt-1">Vérifie, exporte ou publie.</p>
-            </div>
-
-            <GenerationPreview rapport={rapport} seo={seo} onRapportChange={setRapport} onSeoChange={setSeo} />
-
-            {error && <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-sm">{error}</div>}
-
-            {(() => {
-              const pdfProps = {
-                clientNom, adresse, ville, codePostal, dateIntervention, typeIntervention,
-                technicienNom: technicienNom || session?.user?.name || 'Technicien',
-                rapport,
-                photos: photos.map(p => ({ url: p.dataUrl, legende: p.legende })),
-              }
-              const pdfFilename = `rapport-${(ville || 'intervention').toLowerCase()}-${dateIntervention}.pdf`
-              return (
-                <div className="space-y-3 pt-4 border-t border-slate-100">
-                  {/* Aperçus */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => setShowPdfPreview(true)} className="bg-slate-50 text-[#0e2a52] px-4 py-3 rounded-xl font-bold hover:bg-slate-100 active:scale-95 transition-all border-2 border-slate-200">
-                      👁 Aperçu PDF
-                    </button>
-                    <button onClick={() => setShowSitePreview(true)} className="bg-slate-50 text-[#0e2a52] px-4 py-3 rounded-xl font-bold hover:bg-slate-100 active:scale-95 transition-all border-2 border-slate-200">
-                      🌐 Aperçu page
-                    </button>
-                  </div>
-
-                  {/* Export */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <PDFDownloadButton {...pdfProps} />
-                    <DriveSaveButton pdfProps={pdfProps} filename={pdfFilename} />
-                  </div>
-
-                  {/* Actions */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <button
-                      onClick={handleSendToClient}
-                      disabled={emailSending || emailSent || !clientEmail}
-                      className="bg-blue-600 text-white px-4 py-3.5 rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 active:scale-95 transition-all"
-                    >
-                      {emailSent ? '✓ Email envoyé' : emailSending ? 'Envoi…' : '✉ Envoyer au client'}
-                    </button>
-                    <button
-                      onClick={handlePublish}
-                      disabled={step === 'publishing'}
-                      className="bg-emerald-600 text-white px-4 py-3.5 rounded-xl font-bold hover:bg-emerald-700 disabled:opacity-50 active:scale-95 transition-all"
-                    >
-                      {step === 'publishing' ? 'Publication…' : '🌐 Publier sur le site'}
-                    </button>
-                  </div>
-
-                  <PDFPreviewModal open={showPdfPreview} onClose={() => setShowPdfPreview(false)} pdfProps={pdfProps} />
-                  <SitePreviewModal open={showSitePreview} onClose={() => setShowSitePreview(false)} seo={seo} ville={ville} photos={photos.map(p => ({ dataUrl: p.dataUrl, legende: p.legende }))} />
-                </div>
-              )
-            })()}
           </div>
         )}
 
-        {/* ═══════════ ÉTAPE 4 — TERMINÉ ═══════════ */}
-        {step === 'done' && (
+        {/* ═════ ÉTAPE 2 — VÉRIFICATION ═════ */}
+        {step === 'verif' && rapport && (
+          <RapportEditor
+            rapport={rapport}
+            onPatch={patchRapport}
+            onPatchPC={patchPointControle}
+            onContinue={() => setStep('rapport')}
+            onBack={() => setStep('saisie')}
+            onRegenerate={handleGenerate}
+          />
+        )}
+
+        {/* ═════ ÉTAPE 3 — RAPPORT ═════ */}
+        {(step === 'rapport' || step === 'sending') && rapport && (
+          <RapportApercu
+            rapport={rapport}
+            photos={photos}
+            email={email}
+            sending={step === 'sending'}
+            onSendEmail={handleSendEmail}
+            onBack={() => setStep('verif')}
+            onFinish={() => setStep('done')}
+          />
+        )}
+
+        {/* ═════ ÉTAPE 4 — TERMINÉ ═════ */}
+        {step === 'done' && rapport && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center space-y-5">
             <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-3xl">🎉</div>
-            <h2 className="text-2xl font-black text-emerald-700">Réalisation publiée !</h2>
-            <p className="text-slate-600">La page est en ligne sur le site.</p>
-            <a
-              href={`https://votre-domaine-spanc.fr/nos-realisations/${publishedSlug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block bg-[#0e2a52] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#1a3a6b] transition-colors"
-            >
-              Voir la page publiée →
-            </a>
-            <div className="pt-4">
-              <button onClick={resetForm} className="text-blue-600 hover:underline font-bold">+ Nouvelle réalisation</button>
+            <h2 className="text-2xl font-black text-emerald-700">Rapport généré !</h2>
+            {emailSent && (
+              <p className="text-emerald-600 font-semibold">📧 Email envoyé à {email}</p>
+            )}
+            <div className="bg-slate-50 rounded-xl p-4 text-left space-y-1">
+              <div className="text-xs text-slate-500 uppercase tracking-wider">Numéro</div>
+              <div className="font-bold text-[#0e2a52]">{rapport.numeroRapport}</div>
+              <div className="text-xs text-slate-500 uppercase tracking-wider mt-2">Avis</div>
+              <div className="font-bold">{AVIS_LABELS[rapport.avisConformite].icon} {AVIS_LABELS[rapport.avisConformite].label}</div>
+              <div className="text-xs text-slate-500 uppercase tracking-wider mt-2">Prochain contrôle</div>
+              <div className="font-bold text-[#0e2a52]">dans {rapport.prochaineEcheance}</div>
             </div>
-          </div>
-        )}
-      </main>
-
-      {/* ═══════════ BARRE D'ACTION BOTTOM ═══════════ */}
-      {(['capture', 'validate'] as Step[]).includes(step) && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] p-3 z-30">
-          <div className="max-w-3xl mx-auto">
-            {error && <div className="text-red-600 text-sm font-semibold mb-2 text-center">{error}</div>}
-            <div className="flex gap-3">
-              {step === 'capture' ? (
-                <button onClick={() => {}} className="flex-1 bg-slate-100 text-slate-600 py-3.5 rounded-xl font-bold text-sm active:scale-95 transition-all">
-                  Annuler
-                </button>
-              ) : (
-                <button onClick={() => setStep('capture')} className="flex-1 bg-slate-100 text-slate-600 py-3.5 rounded-xl font-bold text-sm active:scale-95 transition-all">
-                  ← Retour
-                </button>
-              )}
-              <button
-                onClick={step === 'capture' ? handleExtract : handleGenerate}
-                className="flex-[2] bg-[#0e2a52] text-white py-3.5 rounded-xl font-bold text-sm shadow-lg active:scale-95 transition-all disabled:opacity-60"
-              >
-                {step === 'capture' ? 'Suivant →' : '🚀 Générer le rapport'}
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+              <RapportSPANCDownloadButton rapport={rapport} photos={photos.map(p => ({ url: p.dataUrl, legende: p.legende }))} label="⬇ Télécharger le PDF" />
+              <button onClick={resetAll} className="bg-white border-2 border-[#0e2a52] text-[#0e2a52] px-5 py-3 rounded-lg font-bold hover:bg-slate-50">
+                + Nouveau contrôle
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {(['preview', 'publishing'] as Step[]).includes(step) && (
+        {/* Erreur globale */}
+        {error && step !== 'generating' && step !== 'sending' && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>
+        )}
+      </main>
+
+      {/* Bottom action bar — étape saisie */}
+      {step === 'saisie' && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] p-3 z-30">
-          <div className="max-w-3xl mx-auto">
-            <button onClick={() => setStep('validate')} className="w-full bg-slate-100 text-slate-600 py-3 rounded-xl font-bold text-sm active:scale-95 transition-all">
-              ← Modifier les informations
+          <div className="max-w-3xl mx-auto flex gap-3">
+            <Link href="/" className="flex-1 bg-slate-100 text-slate-600 py-3.5 rounded-xl font-bold text-sm text-center active:scale-95 transition-all">
+              Annuler
+            </Link>
+            <button
+              onClick={handleGenerate}
+              disabled={dictee.trim().length < 20 || !commune || !technicien}
+              className="flex-[2] bg-[#0e2a52] text-white py-3.5 rounded-xl font-bold text-sm shadow-lg active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              🚀 Générer le rapport
             </button>
           </div>
         </div>
@@ -691,107 +657,249 @@ export default function NouveauPage() {
   )
 }
 
-function VilleCombobox({ value, onChange, onSelect }: { value: string; onChange: (s: string) => void; onSelect: (v: VilleVar) => void }) {
-  const [open, setOpen] = useState(false)
-  const [highlight, setHighlight] = useState(0)
-  const ref = useRef<HTMLDivElement>(null)
+/* ───────────── Sub-components ───────────── */
 
-  const suggestions = value.trim().length >= 1 ? searchVilles(value, 8) : VILLES_VAR.slice(0, 8)
-  const isExactMatch = !!findVilleByName(value)
-
-  useEffect(() => {
-    function onDocClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onDocClick)
-    return () => document.removeEventListener('mousedown', onDocClick)
-  }, [])
-
-  function pick(v: VilleVar) {
-    onSelect(v)
-    setOpen(false)
-  }
-
+function Field({ label, value, onChange, placeholder, type = 'text' }: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  type?: string
+}) {
   return (
-    <div ref={ref} className="relative">
-      <input
-        value={value}
-        onChange={e => { onChange(e.target.value); setOpen(true); setHighlight(0) }}
-        onFocus={() => setOpen(true)}
-        onKeyDown={e => {
-          if (!open) return
-          if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight(h => Math.min(h + 1, suggestions.length - 1)) }
-          else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlight(h => Math.max(h - 1, 0)) }
-          else if (e.key === 'Enter' && suggestions[highlight]) { e.preventDefault(); pick(suggestions[highlight]) }
-          else if (e.key === 'Escape') setOpen(false)
-        }}
-        placeholder="Toulon, Hyères, Bandol…"
-        autoComplete="off"
-        className={`w-full border-2 ${isExactMatch ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200'} focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-base transition-colors`}
-      />
-      {isExactMatch && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 text-lg">✓</span>}
-      {open && suggestions.length > 0 && (
-        <div className="absolute z-40 left-0 right-0 mt-1 bg-white border-2 border-slate-200 rounded-xl shadow-2xl max-h-72 overflow-y-auto">
-          {suggestions.map((v, i) => (
-            <button
-              key={v.nom}
-              type="button"
-              onClick={() => pick(v)}
-              onMouseEnter={() => setHighlight(i)}
-              className={`w-full text-left px-4 py-3 flex justify-between items-center border-b border-slate-100 last:border-b-0 transition ${
-                i === highlight ? 'bg-blue-50 text-blue-700' : 'text-[#0e2a52] hover:bg-slate-50'
-              }`}
-            >
-              <span className="font-semibold text-sm">{v.nom}</span>
-              <span className="text-xs text-slate-500 font-mono">{v.cp}</span>
-            </button>
-          ))}
-        </div>
-      )}
+    <div>
+      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{label}</label>
+      <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+        className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2.5 text-base transition-colors" />
     </div>
   )
 }
 
-type PhotoItemCardProps = {
-  index: number
-  photo: { preview: string; legende: string }
-  isFirst: boolean
-  isLast: boolean
-  onLegendeChange: (s: string) => void
-  onRemove: () => void
-  onMoveUp: () => void
-  onMoveDown: () => void
+function NumberField({ label, value, onChange, placeholder }: {
+  label: string
+  value: number | ''
+  onChange: (v: number | '') => void
+  placeholder?: string
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{label}</label>
+      <input
+        type="number"
+        value={value}
+        onChange={e => {
+          const v = e.target.value
+          onChange(v === '' ? '' : Number(v))
+        }}
+        placeholder={placeholder}
+        inputMode="numeric"
+        className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2.5 text-base transition-colors"
+      />
+    </div>
+  )
 }
 
-function PhotoItemCard({ index, photo, isFirst, isLast, onLegendeChange, onRemove, onMoveUp, onMoveDown }: PhotoItemCardProps) {
+function RapportEditor({
+  rapport, onPatch, onPatchPC, onContinue, onBack, onRegenerate,
+}: {
+  rapport: RapportSPANC
+  onPatch: <K extends keyof RapportSPANC>(k: K, v: RapportSPANC[K]) => void
+  onPatchPC: (i: number, patch: Partial<RapportSPANC['pointsControles'][number]>) => void
+  onContinue: () => void
+  onBack: () => void
+  onRegenerate: () => void
+}) {
   return (
-    <div className="bg-white border-2 border-slate-200 rounded-xl overflow-hidden">
-      <div className="relative">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={photo.preview} alt={photo.legende} className="w-full h-36 object-cover" />
-        <div className="absolute top-2 left-2 bg-[#0e2a52] text-white w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shadow">
-          {index + 1}
+    <div className="space-y-4">
+      <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-black text-[#0e2a52]">Vérifier le rapport généré</h2>
+          <span className={`text-xs font-bold px-2 py-1 rounded-md ${AVIS_LABELS[rapport.avisConformite].tone}`}>
+            {AVIS_LABELS[rapport.avisConformite].icon} {AVIS_LABELS[rapport.avisConformite].short}
+          </span>
         </div>
-        <button onClick={onRemove} type="button" aria-label="Supprimer"
-          className="absolute top-2 right-2 bg-white/95 w-7 h-7 rounded-full text-red-600 font-bold shadow flex items-center justify-center text-sm">✕</button>
-        <div className="absolute bottom-2 right-2 flex gap-1">
-          {!isFirst && (
-            <button onClick={onMoveUp} type="button" aria-label="Monter"
-              className="bg-white/95 w-7 h-7 rounded-full text-[#0e2a52] font-bold shadow flex items-center justify-center text-sm">↑</button>
-          )}
-          {!isLast && (
-            <button onClick={onMoveDown} type="button" aria-label="Descendre"
-              className="bg-white/95 w-7 h-7 rounded-full text-[#0e2a52] font-bold shadow flex items-center justify-center text-sm">↓</button>
-          )}
+
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Constat technique</label>
+          <textarea value={rapport.constatTechnique} rows={4}
+            onChange={e => onPatch('constatTechnique', e.target.value)}
+            className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2 text-sm" />
         </div>
-      </div>
-      <div className="p-2.5">
-        <input
-          value={photo.legende}
-          onChange={e => onLegendeChange(e.target.value)}
-          placeholder={`Photo ${index + 1}`}
-          className="w-full border border-slate-200 focus:border-blue-500 outline-none rounded-lg px-3 py-2 text-sm transition-colors"
+
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Évaluation de conformité</label>
+          <textarea value={rapport.evaluationConformite} rows={5}
+            onChange={e => onPatch('evaluationConformite', e.target.value)}
+            className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2 text-sm" />
+        </div>
+      </section>
+
+      {/* Points de contrôle */}
+      <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-2">
+        <h3 className="text-base font-bold text-[#0e2a52]">Points de contrôle</h3>
+        <div className="space-y-2">
+          {rapport.pointsControles.map((p, i) => (
+            <div key={i} className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2">
+              <input value={p.label} onChange={e => onPatchPC(i, { label: e.target.value })}
+                className="flex-1 outline-none border-none text-sm" />
+              <select value={p.statut} onChange={e => onPatchPC(i, { statut: e.target.value as StatutPointControle })}
+                className="text-xs font-bold border border-slate-200 rounded px-2 py-1 bg-white">
+                <option value="conforme">✓ Conforme</option>
+                <option value="non_conforme">✗ Non conforme</option>
+                <option value="non_verifie">· Non vérifié</option>
+              </select>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Prescriptions */}
+      <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-2">
+        <h3 className="text-base font-bold text-[#0e2a52]">Prescriptions / Recommandations</h3>
+        <textarea
+          value={rapport.prescriptions.join('\n')}
+          onChange={e => onPatch('prescriptions', e.target.value.split('\n').map(s => s.trim()).filter(Boolean))}
+          rows={4}
+          placeholder="Une prescription par ligne…"
+          className="w-full border-2 border-slate-200 focus:border-red-500 outline-none rounded-xl px-3 py-2 text-sm"
         />
+      </section>
+
+      <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-2">
+        <h3 className="text-base font-bold text-[#0e2a52]">Observations du technicien</h3>
+        <textarea value={rapport.observationsTechnicien} rows={3}
+          onChange={e => onPatch('observationsTechnicien', e.target.value)}
+          className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2 text-sm" />
+      </section>
+
+      <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
+        <h3 className="text-base font-bold text-[#0e2a52]">Avis & échéance</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {(Object.keys(AVIS_LABELS) as AvisConformite[]).map(a => {
+            const meta = AVIS_LABELS[a]
+            const active = rapport.avisConformite === a
+            return (
+              <button key={a} type="button"
+                onClick={() => {
+                  onPatch('avisConformite', a)
+                  onPatch('prochaineEcheance', prochaineEcheanceParDefaut(a, rapport.typeControle))
+                }}
+                className={`p-2.5 rounded-xl border-2 text-left transition-all ${
+                  active ? `${meta.tone} shadow-md` : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                }`}>
+                <span className="text-lg mr-1">{meta.icon}</span>
+                <span className="text-xs font-bold">{meta.label}</span>
+              </button>
+            )
+          })}
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Prochaine échéance</label>
+          <input value={rapport.prochaineEcheance} onChange={e => onPatch('prochaineEcheance', e.target.value)}
+            placeholder="ex: 10 ans" className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2.5 text-base" />
+        </div>
+      </section>
+
+      <div className="flex gap-3 pb-4">
+        <button onClick={onBack} className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold text-sm">← Modifier la saisie</button>
+        <button onClick={onRegenerate} className="flex-1 bg-white border-2 border-blue-500 text-blue-700 py-3 rounded-xl font-bold text-sm">🔄 Régénérer</button>
+        <button onClick={onContinue} className="flex-[2] bg-[#0e2a52] text-white py-3 rounded-xl font-bold text-sm">Voir le rapport →</button>
+      </div>
+    </div>
+  )
+}
+
+function RapportApercu({
+  rapport, photos, email, sending, onSendEmail, onBack, onFinish,
+}: {
+  rapport: RapportSPANC
+  photos: PhotoItem[]
+  email: string
+  sending: boolean
+  onSendEmail: () => void
+  onBack: () => void
+  onFinish: () => void
+}) {
+  const av = AVIS_LABELS[rapport.avisConformite]
+  return (
+    <div className="space-y-4">
+      <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4">
+        <div className="text-center">
+          <div className="text-[10px] uppercase tracking-[0.4em] text-amber-700 font-bold mb-2">Rapport SPANC officiel</div>
+          <h2 className="text-2xl font-black text-[#0e2a52]">{TYPE_CONTROLE_LABELS[rapport.typeControle].label}</h2>
+          <p className="text-xs text-slate-500 mt-1">{rapport.numeroRapport}</p>
+        </div>
+
+        <div className={`border-2 rounded-2xl p-4 text-center ${av.tone}`}>
+          <div className="text-3xl mb-1">{av.icon}</div>
+          <div className="font-black uppercase tracking-wider">{av.label}</div>
+          <div className="text-sm mt-1">Prochain contrôle dans {rapport.prochaineEcheance}</div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+          <div>
+            <div className="text-xs text-slate-500 uppercase tracking-wider">Propriétaire</div>
+            <div className="font-semibold">{rapport.usager.prenom} {rapport.usager.nom}</div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-500 uppercase tracking-wider">Adresse</div>
+            <div className="font-semibold">{rapport.usager.adresse}, {rapport.usager.codePostal} {rapport.usager.commune}</div>
+          </div>
+          {(rapport.usager.sectionCadastrale || rapport.usager.numeroParcelle) && (
+            <div className="sm:col-span-2">
+              <div className="text-xs text-slate-500 uppercase tracking-wider">Cadastre</div>
+              <div className="font-semibold">Section {rapport.usager.sectionCadastrale || '—'} · Parcelle {rapport.usager.numeroParcelle || '—'}</div>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-3 pt-3 border-t border-slate-100">
+          <div>
+            <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Constat technique</div>
+            <p className="text-sm leading-relaxed">{rapport.constatTechnique}</p>
+          </div>
+          <div>
+            <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Évaluation</div>
+            <p className="text-sm leading-relaxed">{rapport.evaluationConformite}</p>
+          </div>
+          {rapport.prescriptions.length > 0 && (
+            <div>
+              <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Prescriptions</div>
+              <ul className="space-y-1 text-sm">
+                {rapport.prescriptions.map((p, i) => (
+                  <li key={i} className="flex items-start gap-2"><span className="text-red-600 font-bold">▶</span><span>{p}</span></li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
+        <h3 className="font-bold text-[#0e2a52]">Actions</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <RapportSPANCDownloadButton
+            rapport={rapport}
+            photos={photos.map(p => ({ url: p.dataUrl, legende: p.legende }))}
+            label="⬇ Télécharger PDF"
+            className="bg-[#0e2a52] text-white px-5 py-3.5 rounded-xl font-bold hover:bg-[#0a2047] disabled:opacity-50 w-full text-center"
+          />
+          <button
+            type="button"
+            onClick={onSendEmail}
+            disabled={sending || !email}
+            className="bg-blue-600 text-white px-5 py-3.5 rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {sending ? 'Envoi…' : email ? `📧 Envoyer à ${email}` : '📧 Email manquant'}
+          </button>
+        </div>
+        <button onClick={onFinish} className="w-full mt-2 bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700">
+          ✓ Marquer comme terminé
+        </button>
+      </section>
+
+      <div className="flex gap-3 pb-4">
+        <button onClick={onBack} className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold text-sm">← Corriger</button>
       </div>
     </div>
   )

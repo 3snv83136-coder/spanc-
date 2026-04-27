@@ -4,31 +4,57 @@ import { useSession } from "next-auth/react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
 import VoiceRecorder from "@/components/VoiceRecorder"
+import CommuneSensCombobox from "@/components/CommuneSensCombobox"
 import type { AttestationData, AttestationObservation, Variante } from "@/components/AttestationPDF"
+import { PRETRAITEMENT_LABELS, TRAITEMENT_LABELS, REJET_LABELS, type TypePretraitement, type TypeTraitement, type TypeRejet } from "@/lib/types/spanc"
 
 const AttestationDownloadButton = dynamic(() => import("@/components/AttestationPDF"), { ssr: false })
 
 type Step = 'capture' | 'generating' | 'preview'
 type PhotoItem = { file: File; dataUrl: string; preview: string; legende: string }
 
-const VARIANT_OPTIONS: { key: Variante; label: string; desc: string; color: string }[] = [
+const VARIANT_OPTIONS: { key: Variante; label: string; desc: string; color: string; icon: string }[] = [
   {
     key: 'tout-a-legout',
+    icon: '✅',
     label: 'Conforme — Tout-à-l\'égout',
-    desc: 'Bien raccordé au réseau public d\'assainissement collectif (zonage AC)',
+    desc: 'Raccordement au réseau public collectif (zonage AC)',
     color: 'border-emerald-500 bg-emerald-50 text-emerald-900',
   },
   {
     key: 'fosse-septique',
+    icon: '✅',
     label: 'Conforme ANC',
-    desc: 'Installation d\'assainissement non collectif fonctionnelle (fosse toutes eaux + traitement)',
+    desc: 'Installation d\'assainissement non collectif fonctionnelle',
+    color: 'border-emerald-500 bg-emerald-50 text-emerald-900',
+  },
+  {
+    key: 'conforme-recommandations',
+    icon: '🟡',
+    label: 'Conforme avec recommandations',
+    desc: 'Installation conforme — améliorations souhaitables',
     color: 'border-amber-500 bg-amber-50 text-amber-900',
   },
   {
     key: 'non-conforme',
-    label: 'Non-conforme',
-    desc: 'Installation absente, défaillante ou présentant un risque sanitaire / environnemental',
+    icon: '❌',
+    label: 'Non-conforme — travaux prescrits',
+    desc: 'Mise en conformité dans un délai de 4 ans',
     color: 'border-red-500 bg-red-50 text-red-900',
+  },
+  {
+    key: 'risque-sanitaire',
+    icon: '🚨',
+    label: 'Non-conforme — risque sanitaire',
+    desc: 'Mise en conformité urgente (1 an)',
+    color: 'border-red-700 bg-red-100 text-red-950',
+  },
+  {
+    key: 'diagnostic-vente',
+    icon: '🏠',
+    label: 'Diagnostic de vente',
+    desc: 'Validité 3 ans · à annexer à l\'acte de vente',
+    color: 'border-blue-500 bg-blue-50 text-blue-900',
   },
 ]
 
@@ -83,12 +109,23 @@ export default function AttestationPage() {
   const [adresse, setAdresse] = useState('')
   const [codePostal, setCodePostal] = useState('')
   const [ville, setVille] = useState('')
+  const [sectionCadastrale, setSectionCadastrale] = useState('')
+  const [numeroParcelle, setNumeroParcelle] = useState('')
+  const [pretraitement, setPretraitement] = useState<TypePretraitement | ''>('')
+  const [traitement, setTraitement] = useState<TypeTraitement | ''>('')
+  const [rejet, setRejet] = useState<TypeRejet | ''>('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [technicienNom, setTechnicienNom] = useState('')
   const [transcription, setTranscription] = useState('')
   const [photos, setPhotos] = useState<PhotoItem[]>([])
 
   const [data, setData] = useState<AttestationData | null>(null)
+
+  // Email + sauvegarde
+  const [emailClient, setEmailClient] = useState('')
+  const [sendingMail, setSendingMail] = useState(false)
+  const [savingDrive, setSavingDrive] = useState(false)
+  const [actionMessage, setActionMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
 
   useEffect(() => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem('spanc_technicien') : null
@@ -113,9 +150,6 @@ export default function AttestationPage() {
 
   async function handleGenerate() {
     setError('')
-    if (!nom || !prenom || !adresse || !ville) { setError('Renseigne nom, prénom, adresse, ville.'); return }
-    if (!technicienNom) { setError('Indique ton nom de technicien.'); return }
-    if (photos.length === 0) { setError('Au moins une photo d\'inspection est requise.'); return }
     if (transcription.trim().length < 20) { setError('Dicte au moins quelques phrases sur l\'inspection et tes constats.'); return }
 
     setStep('generating')
@@ -134,7 +168,18 @@ export default function AttestationPage() {
       })
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || 'Génération échouée')
-      setData(result as AttestationData)
+      // Enrichir le résultat IA avec les champs SPANC saisis côté client
+      const enriched: AttestationData = {
+        ...(result as AttestationData),
+        sectionCadastrale: sectionCadastrale || undefined,
+        numeroParcelle: numeroParcelle || undefined,
+        filiere: (pretraitement || traitement || rejet) ? {
+          pretraitement: pretraitement ? PRETRAITEMENT_LABELS[pretraitement] : undefined,
+          traitement: traitement ? TRAITEMENT_LABELS[traitement] : undefined,
+          rejet: rejet ? REJET_LABELS[rejet] : undefined,
+        } : undefined,
+      }
+      setData(enriched)
       setStep('preview')
     } catch (e: any) {
       setError(`Erreur IA : ${e.message}`)
@@ -155,6 +200,60 @@ export default function AttestationPage() {
   function addObservation() {
     if (!data) return
     setData({ ...data, observations: [...data.observations, { label: '', valeur: '', statut: 'info' }] })
+  }
+
+  async function handleSendMailAndAgglo() {
+    if (!data) return
+    setActionMessage(null)
+    if (!emailClient || !/^\S+@\S+\.\S+$/.test(emailClient)) {
+      setActionMessage({ kind: 'err', text: 'Renseigne un email client valide.' })
+      return
+    }
+    setSendingMail(true)
+    try {
+      const res = await fetch('/api/notify-client', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: emailClient,
+          subject: `Attestation de conformité ${data.numero || ''}`,
+          attestation: data,
+          archive: 'reseau-spanc-agglo',
+        }),
+      })
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '')
+        throw new Error(`Envoi mail / archivage indisponible (${res.status}). ${txt.slice(0, 120)}`)
+      }
+      setActionMessage({ kind: 'ok', text: `Mail envoyé à ${emailClient} et archivé sur Réseau SPANC Agglo.` })
+    } catch (e: any) {
+      setActionMessage({ kind: 'err', text: e.message || 'Erreur d\'envoi.' })
+    } finally {
+      setSendingMail(false)
+    }
+  }
+
+  async function handleSaveToDrive() {
+    if (!data) return
+    setActionMessage(null)
+    setSavingDrive(true)
+    try {
+      const res = await fetch('/api/save-drive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attestation: data }),
+      })
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '')
+        throw new Error(`Google Drive non configuré (${res.status}). ${txt.slice(0, 120)}`)
+      }
+      const json = await res.json()
+      setActionMessage({ kind: 'ok', text: `Enregistré sur Google Drive${json.url ? ` — ${json.url}` : ''}.` })
+    } catch (e: any) {
+      setActionMessage({ kind: 'err', text: e.message || 'Erreur Google Drive.' })
+    } finally {
+      setSavingDrive(false)
+    }
   }
 
   /* ===== STEP: GENERATING ===== */
@@ -227,8 +326,30 @@ export default function AttestationPage() {
             <textarea
               value={data.methode}
               onChange={e => setData({ ...data, methode: e.target.value })}
-              rows={4}
+              rows={6}
               className="w-full border-2 border-slate-200 focus:border-[#0f2e5c] outline-none rounded-lg px-3 py-2 text-sm"
+            />
+          </section>
+
+          {/* Cadre normatif */}
+          <section className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+            <h2 className="font-bold text-[#0f2e5c]">Cadre normatif &amp; textes applicables</h2>
+            <textarea
+              value={data.cadreReglementaire || ''}
+              onChange={e => setData({ ...data, cadreReglementaire: e.target.value })}
+              rows={4}
+              placeholder="Paragraphe juridique : DTU 64.1, arrêtés ANC, portée vente immobilière, délais de mise en conformité…"
+              className="w-full border-2 border-slate-200 focus:border-[#a78346] outline-none rounded-lg px-3 py-2 text-sm"
+            />
+            <div className="text-xs uppercase tracking-wide text-slate-500 mt-2 mb-1">
+              Références citées (une par ligne)
+            </div>
+            <textarea
+              value={(data.referencesNormatives || []).join('\n')}
+              onChange={e => setData({ ...data, referencesNormatives: e.target.value.split('\n').map(s => s.trim()).filter(Boolean) })}
+              rows={6}
+              placeholder="NF DTU 64.1 P1-1 (mars 2013) — …"
+              className="w-full border-2 border-slate-200 focus:border-[#a78346] outline-none rounded-lg px-3 py-2 text-xs font-mono"
             />
           </section>
 
@@ -330,6 +451,52 @@ export default function AttestationPage() {
             />
           </section>
 
+          {/* Envoi & Sauvegarde */}
+          <section className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+            <h2 className="font-bold text-[#0f2e5c]">Envoi &amp; sauvegarde</h2>
+
+            <Field
+              label="Email du client (pour envoi mail)"
+              value={emailClient}
+              onChange={setEmailClient}
+              placeholder="client@exemple.fr"
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleSendMailAndAgglo}
+                disabled={sendingMail}
+                className="flex items-center justify-center gap-2 bg-[#0f2e5c] hover:bg-[#0a2047] disabled:bg-slate-300 text-white font-semibold py-3 rounded-xl transition-colors"
+              >
+                <span aria-hidden>📧</span>
+                {sendingMail ? 'Envoi en cours…' : 'Envoi mail + Réseau SPANC Agglo'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSaveToDrive}
+                disabled={savingDrive}
+                className="flex items-center justify-center gap-2 bg-white border-2 border-[#0f2e5c] text-[#0f2e5c] hover:bg-slate-50 disabled:opacity-60 font-semibold py-3 rounded-xl transition-colors"
+              >
+                <span aria-hidden>☁️</span>
+                {savingDrive ? 'Enregistrement…' : 'Enregistrer sur Google Drive'}
+              </button>
+            </div>
+
+            {actionMessage && (
+              <div
+                className={`text-sm rounded-lg px-3 py-2 ${
+                  actionMessage.kind === 'ok'
+                    ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                    : 'bg-red-50 border border-red-200 text-red-700'
+                }`}
+              >
+                {actionMessage.text}
+              </div>
+            )}
+          </section>
+
           <div className="flex justify-end pb-10">
             <AttestationDownloadButton data={data} photos={photosForPdf} />
           </div>
@@ -381,11 +548,57 @@ export default function AttestationPage() {
             <Field label="Nom" value={nom} onChange={setNom} placeholder="Dupont" />
             <Field label="Adresse du bien" value={adresse} onChange={setAdresse} placeholder="1 place du Château" />
             <Field label="Code postal" value={codePostal} onChange={setCodePostal} />
-            <Field label="Ville" value={ville} onChange={setVille} />
+            <label className="block text-sm">
+              <span className="text-xs uppercase tracking-wide text-slate-500">Commune</span>
+              <div className="mt-1">
+                <CommuneSensCombobox
+                  value={ville}
+                  onChange={setVille}
+                  onSelect={c => { setVille(c.nom); if (!codePostal) setCodePostal(c.cp) }}
+                  className="w-full border border-slate-200 rounded px-2 py-1.5"
+                />
+              </div>
+            </label>
             <label className="block text-sm">
               <span className="text-xs uppercase tracking-wide text-slate-500">Date de l&apos;inspection</span>
               <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full border border-slate-200 rounded px-2 py-1.5 mt-1" />
             </label>
+          </div>
+        </section>
+
+        {/* Cadastre & filière ANC */}
+        <section className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+          <h2 className="font-bold text-[#0f2e5c]">Cadastre &amp; filière ANC</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="Section cadastrale" value={sectionCadastrale} onChange={setSectionCadastrale} placeholder="ex: AB" />
+            <Field label="N° parcelle" value={numeroParcelle} onChange={setNumeroParcelle} placeholder="ex: 0042" />
+          </div>
+          <div>
+            <label className="text-xs uppercase tracking-wide text-slate-500">Prétraitement</label>
+            <select value={pretraitement} onChange={e => setPretraitement(e.target.value as TypePretraitement | '')} className="w-full border border-slate-200 rounded px-2 py-1.5 mt-1 bg-white">
+              <option value="">— (facultatif)</option>
+              {(Object.keys(PRETRAITEMENT_LABELS) as TypePretraitement[]).map(t => (
+                <option key={t} value={t}>{PRETRAITEMENT_LABELS[t]}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs uppercase tracking-wide text-slate-500">Traitement</label>
+            <select value={traitement} onChange={e => setTraitement(e.target.value as TypeTraitement | '')} className="w-full border border-slate-200 rounded px-2 py-1.5 mt-1 bg-white">
+              <option value="">— (facultatif)</option>
+              {(Object.keys(TRAITEMENT_LABELS) as TypeTraitement[]).map(t => (
+                <option key={t} value={t}>{TRAITEMENT_LABELS[t]}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs uppercase tracking-wide text-slate-500">Exutoire / rejet</label>
+            <select value={rejet} onChange={e => setRejet(e.target.value as TypeRejet | '')} className="w-full border border-slate-200 rounded px-2 py-1.5 mt-1 bg-white">
+              <option value="">— (facultatif)</option>
+              {(Object.keys(REJET_LABELS) as TypeRejet[]).map(t => (
+                <option key={t} value={t}>{REJET_LABELS[t]}</option>
+              ))}
+            </select>
           </div>
         </section>
 
@@ -426,8 +639,8 @@ export default function AttestationPage() {
         <section className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-bold text-[#0f2e5c]">Photos d&apos;inspection <span className="text-red-600">*</span></h2>
-              <p className="text-xs text-slate-500 mt-1">Regard ouvert, raccordement, réseau, coloration — au moins 1 photo requise.</p>
+              <h2 className="font-bold text-[#0f2e5c]">Photos d&apos;inspection</h2>
+              <p className="text-xs text-slate-500 mt-1">Regard ouvert, raccordement, réseau, coloration — facultatif.</p>
             </div>
             <span className="bg-[#0f2e5c] text-white text-xs font-bold w-7 h-7 rounded-full flex items-center justify-center">{photos.length}</span>
           </div>

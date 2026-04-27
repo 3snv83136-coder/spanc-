@@ -252,7 +252,13 @@ const s = StyleSheet.create({
 })
 
 /* ============ TYPES ============ */
-export type Variante = 'tout-a-legout' | 'fosse-septique' | 'non-conforme'
+export type Variante =
+  | 'tout-a-legout'              // ✅ Conforme — raccordement collectif
+  | 'fosse-septique'             // ✅ Conforme ANC
+  | 'conforme-recommandations'   // 🟡 Conforme avec recommandations
+  | 'non-conforme'               // ❌ Non conforme — travaux prescrits
+  | 'risque-sanitaire'           // 🚨 Non conforme — risque sanitaire (urgence)
+  | 'diagnostic-vente'           // 🏠 Diagnostic de vente (validité 3 ans)
 
 export interface AttestationObservation {
   label: string
@@ -272,12 +278,18 @@ export interface AttestationData {
   codePostal: string
   ville: string
 
+  // Cadastre (SPANC) — optionnel
+  sectionCadastrale?: string
+  numeroParcelle?: string
+
   // Technicien
   technicienNom: string
 
   // Contenu produit depuis la dictée
   objet: string
   methode: string                          // paragraphe: comment l'inspection a été menée
+  cadreReglementaire?: string              // paragraphe : textes applicables + portée juridique
+  referencesNormatives?: string[]          // liste : textes de référence (DTU, arrêtés, codes)
   observations: AttestationObservation[]   // checklist structurée
   conclusion: string                       // paragraphe de conclusion technique
   reserves?: string                        // éventuelles réserves (vide si néant)
@@ -289,7 +301,13 @@ export interface AttestationData {
     acces?: string
     derniere_vidange?: string
   }
-  // Variante C (non-conforme) — anomalies + recommandations
+  // Filière ANC complète (SPANC) — optionnel
+  filiere?: {
+    pretraitement?: string
+    traitement?: string
+    rejet?: string
+  }
+  // Variante "non-conforme" / "risque-sanitaire" — anomalies + recommandations
   anomalies?: string[]
   recommandations?: string[]
 }
@@ -354,9 +372,14 @@ const SolemnDivider = () => (
 
 /* ============ TEXTES D'ATTESTATION PAR VARIANTE ============ */
 function attestationLabel(v: Variante): string {
-  if (v === 'tout-a-legout') return 'Raccordement au réseau public d\'assainissement collectif'
-  if (v === 'fosse-septique') return 'Raccordement à un dispositif d\'assainissement non collectif (fosse septique)'
-  return 'Non-conformité du réseau d\'évacuation'
+  switch (v) {
+    case 'tout-a-legout': return 'Raccordement au réseau public d\'assainissement collectif'
+    case 'fosse-septique': return 'Conformité du dispositif d\'assainissement non collectif (ANC)'
+    case 'conforme-recommandations': return 'Conformité ANC avec recommandations d\'amélioration'
+    case 'non-conforme': return 'Non-conformité de l\'installation — travaux prescrits'
+    case 'risque-sanitaire': return 'Non-conformité — risque sanitaire (mise en conformité urgente)'
+    case 'diagnostic-vente': return 'Diagnostic ANC dans le cadre d\'une transaction immobilière'
+  }
 }
 
 function attestationClause(data: AttestationData): { badge: string; wrapStyle: any; badgeStyle: any; content: React.ReactNode } {
@@ -412,7 +435,73 @@ function attestationClause(data: AttestationData): { badge: string; wrapStyle: a
     }
   }
 
-  // non-conforme
+  if (data.variante === 'conforme-recommandations') {
+    return {
+      badge: 'ATTESTATION — CONFORME AVEC RECOMMANDATIONS',
+      wrapStyle: s.attestInternal,
+      badgeStyle: s.attestBadgeInternal,
+      content: (
+        <>
+          <Text style={[s.attestText, s.attestPara]}>
+            Je soussigné <Text style={s.attestStrong}>{tech}</Text>, technicien du SPANC, après contrôle de l&apos;installation d&apos;assainissement non collectif du bien appartenant à <Text style={s.attestStrong}>{plein}</Text>, situé <Text style={s.attestStrong}>{adresseComplete}</Text>,
+          </Text>
+          <Text style={[s.attestText, s.attestPara]}>
+            <Text style={s.attestStrong}>atteste par la présente</Text> que l&apos;installation est <Text style={s.attestStrong}>conforme aux prescriptions réglementaires</Text> en vigueur (arrêté du 7 septembre 2009 modifié), assortie de <Text style={s.attestStrong}>recommandations d&apos;amélioration</Text> détaillées au chapitre « Recommandations ».
+          </Text>
+          <Text style={s.attestText}>
+            Cette attestation est établie sur la base des constats techniques du {fmtDateFR(data.date)}. Validité : 10 ans (sauf modification de l&apos;installation ou de l&apos;usage).
+          </Text>
+        </>
+      ),
+    }
+  }
+
+  if (data.variante === 'risque-sanitaire') {
+    return {
+      badge: 'ATTESTATION — NON-CONFORMITÉ · RISQUE SANITAIRE',
+      wrapStyle: s.attestNonConform,
+      badgeStyle: s.attestBadgeNon,
+      content: (
+        <>
+          <Text style={[s.attestText, s.attestPara]}>
+            Je soussigné <Text style={s.attestStrong}>{tech}</Text>, technicien du SPANC, après contrôle de l&apos;installation d&apos;assainissement non collectif du bien appartenant à <Text style={s.attestStrong}>{plein}</Text>, situé <Text style={s.attestStrong}>{adresseComplete}</Text>,
+          </Text>
+          <Text style={[s.attestText, s.attestPara]}>
+            <Text style={s.attestStrong}>constate et atteste</Text> que cette installation présente des <Text style={s.attestStrong}>non-conformités majeures avec risque sanitaire et/ou environnemental avéré</Text> (cf. chapitre « Anomalies constatées »).
+          </Text>
+          <Text style={[s.attestText, s.attestPara]}>
+            En application de l&apos;arrêté du 27 avril 2012, le propriétaire est tenu de procéder à la <Text style={s.attestStrong}>mise en conformité de l&apos;installation dans un délai d&apos;un (1) an</Text> à compter de la notification du présent rapport, ou avant la signature de l&apos;acte authentique en cas de vente immobilière.
+          </Text>
+          <Text style={s.attestText}>
+            Document délivré pour faire valoir ce que de droit, notamment auprès du SPANC et des autorités sanitaires.
+          </Text>
+        </>
+      ),
+    }
+  }
+
+  if (data.variante === 'diagnostic-vente') {
+    return {
+      badge: 'DIAGNOSTIC ANC — TRANSACTION IMMOBILIÈRE',
+      wrapStyle: s.attestInternal,
+      badgeStyle: s.attestBadgeInternal,
+      content: (
+        <>
+          <Text style={[s.attestText, s.attestPara]}>
+            Je soussigné <Text style={s.attestStrong}>{tech}</Text>, technicien du SPANC, dans le cadre du diagnostic obligatoire prévu à l&apos;article L.271-4 du Code de la construction et de l&apos;habitation, ai procédé au contrôle de l&apos;installation d&apos;assainissement non collectif du bien immobilier appartenant à <Text style={s.attestStrong}>{plein}</Text>, situé <Text style={s.attestStrong}>{adresseComplete}</Text>.
+          </Text>
+          <Text style={[s.attestText, s.attestPara]}>
+            Les conclusions du diagnostic sont consignées au chapitre « Conclusion technique ». Le présent document doit être <Text style={s.attestStrong}>annexé à la promesse de vente et à l&apos;acte authentique</Text>. Sa <Text style={s.attestStrong}>validité est de trois (3) ans</Text> à compter du {fmtDateFR(data.date)}.
+          </Text>
+          <Text style={s.attestText}>
+            En cas de non-conformité, l&apos;acquéreur dispose d&apos;un délai d&apos;un (1) an à compter de l&apos;acte authentique pour procéder à la mise en conformité de l&apos;installation (arrêté du 27 avril 2012).
+          </Text>
+        </>
+      ),
+    }
+  }
+
+  // non-conforme (travaux prescrits — délai 4 ans)
   return {
     badge: 'ATTESTATION — NON-CONFORMITÉ',
     wrapStyle: s.attestNonConform,
@@ -444,11 +533,39 @@ export function AttestationDocument({ data, photos }: AttestationPDFProps) {
   const idRows: Array<{ k: string; v: string }> = [
     { k: 'Propriétaire', v: `${data.prenom} ${data.nom}`.trim() || '—' },
     { k: 'Adresse du bien', v: [data.adresse, `${data.codePostal} ${data.ville}`].filter(Boolean).join(' — ') || '—' },
+  ]
+  if (data.sectionCadastrale || data.numeroParcelle) {
+    idRows.push({ k: 'Cadastre', v: `Section ${data.sectionCadastrale || '—'} · Parcelle ${data.numeroParcelle || '—'}` })
+  }
+  if (data.filiere?.pretraitement) {
+    idRows.push({ k: 'Prétraitement ANC', v: data.filiere.pretraitement })
+  }
+  if (data.filiere?.traitement) {
+    idRows.push({ k: 'Traitement ANC', v: data.filiere.traitement })
+  }
+  if (data.filiere?.rejet) {
+    idRows.push({ k: 'Exutoire / rejet', v: data.filiere.rejet })
+  }
+  idRows.push(
     { k: 'Date de l\'inspection', v: fmtDateFR(data.date) },
     { k: 'Technicien intervenant', v: data.technicienNom || '—' },
     { k: 'Objet de l\'attestation', v: variantTitle },
     { k: 'N° de dossier', v: data.numero },
-  ]
+  )
+
+  // Numérotation dynamique des sections (selon ce qui est présent)
+  let n = 0
+  const nObjet = data.objet ? ++n : null
+  const nMethode = data.methode ? ++n : null
+  const nCadre = (data.cadreReglementaire || (data.referencesNormatives && data.referencesNormatives.length > 0)) ? ++n : null
+  const nReleves = (data.observations?.length ?? 0) > 0 ? ++n : null
+  const nFosse = (data.variante === 'fosse-septique' && data.fosse) ? ++n : null
+  const showAnomalies = data.variante === 'non-conforme' || data.variante === 'risque-sanitaire'
+  const nAnomalies = (showAnomalies && (data.anomalies?.length ?? 0) > 0) ? ++n : null
+  const showRecommandations = data.variante === 'conforme-recommandations' || data.variante === 'diagnostic-vente'
+  const nRecommandations = (showRecommandations && (data.recommandations?.length ?? 0) > 0) ? ++n : null
+  const nPhotos = (photos?.length ?? 0) > 0 ? ++n : null
+  const nConclusion = data.conclusion ? ++n : null
 
   return (
     <Document>
@@ -492,24 +609,46 @@ export function AttestationDocument({ data, photos }: AttestationPDFProps) {
             {clause.content}
           </View>
 
-          {/* Section 1 — Objet (bandeau + paragraphe solidaires) */}
-          {data.objet ? (
+          {/* Objet */}
+          {nObjet ? (
             <View wrap={false}>
-              <SectionBand num={1} title="Objet de l'intervention" />
+              <SectionBand num={nObjet} title="Objet de l'intervention" />
               <Text style={s.para}>{data.objet}</Text>
             </View>
           ) : null}
 
-          {/* Section 2 — Méthode (bandeau + paragraphe solidaires) */}
-          {data.methode ? (
+          {/* Méthode */}
+          {nMethode ? (
             <View wrap={false}>
-              <SectionBand num={2} title="Méthodologie de l'inspection" />
+              <SectionBand num={nMethode} title="Méthodologie de l'inspection" />
               <Text style={s.para}>{data.methode}</Text>
             </View>
           ) : null}
 
-          {/* Section 3 — Relevés techniques (checklist) */}
-          {(data.observations?.length ?? 0) > 0 ? (() => {
+          {/* Cadre normatif & textes applicables */}
+          {nCadre ? (
+            <View>
+              <View wrap={false}>
+                <SectionBand num={nCadre} title="Cadre normatif & textes applicables" />
+                {data.cadreReglementaire ? (
+                  <Text style={s.para}>{data.cadreReglementaire}</Text>
+                ) : null}
+              </View>
+              {(data.referencesNormatives && data.referencesNormatives.length > 0) ? (
+                <View>
+                  {data.referencesNormatives.map((r, i) => (
+                    <View key={i} style={s.check} wrap={false}>
+                      <Text style={[s.checkMark, { color: C.gold }]}>§</Text>
+                      <Text style={s.checkLabel}>{r}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
+          {/* Relevés techniques (checklist) */}
+          {nReleves ? (() => {
             const first = data.observations[0]
             const rest = data.observations.slice(1)
             const renderCheck = (o: AttestationObservation, key: number | string) => {
@@ -526,9 +665,8 @@ export function AttestationDocument({ data, photos }: AttestationPDFProps) {
             }
             return (
               <View>
-                {/* bandeau + 1ʳᵉ ligne ensemble → jamais de bandeau orphelin */}
                 <View wrap={false}>
-                  <SectionBand num={3} title="Relevés techniques" />
+                  <SectionBand num={nReleves} title="Relevés techniques" />
                   {renderCheck(first, 'first')}
                 </View>
                 {rest.map((o, i) => renderCheck(o, i))}
@@ -536,16 +674,16 @@ export function AttestationDocument({ data, photos }: AttestationPDFProps) {
             )
           })() : null}
 
-          {/* Variante B — caractéristiques fosse si présentes */}
-          {data.variante === 'fosse-septique' && data.fosse ? (
+          {/* Variante B — caractéristiques fosse */}
+          {nFosse ? (
             <View wrap={false}>
-              <SectionBand num={4} title="Caractéristiques du dispositif" />
+              <SectionBand num={nFosse} title="Caractéristiques du dispositif" />
               <View style={s.idTable}>
                 {[
-                  { k: 'Volume estimé', v: data.fosse.volume_m3 || '—' },
-                  { k: 'État général', v: data.fosse.etat || '—' },
-                  { k: 'Accessibilité', v: data.fosse.acces || '—' },
-                  { k: 'Dernière vidange', v: data.fosse.derniere_vidange || 'Non communiquée' },
+                  { k: 'Volume estimé', v: data.fosse?.volume_m3 || '—' },
+                  { k: 'État général', v: data.fosse?.etat || '—' },
+                  { k: 'Accessibilité', v: data.fosse?.acces || '—' },
+                  { k: 'Dernière vidange', v: data.fosse?.derniere_vidange || 'Non communiquée' },
                 ].map((r, i, arr) => (
                   <View key={i} style={[s.idRow, i % 2 ? s.idRowAlt : {}, i === arr.length - 1 ? s.idRowLast : {}]}>
                     <Text style={s.idLabel}>{r.k}</Text>
@@ -556,12 +694,11 @@ export function AttestationDocument({ data, photos }: AttestationPDFProps) {
             </View>
           ) : null}
 
-          {/* Variante C — anomalies */}
-          {data.variante === 'non-conforme' && (data.anomalies?.length ?? 0) > 0 ? (
+          {/* Variante non-conforme / risque-sanitaire — anomalies */}
+          {nAnomalies ? (
             <View>
-              {/* bandeau + 1ʳᵉ anomalie ensemble */}
               <View wrap={false}>
-                <SectionBand num={4} title="Anomalies constatées" />
+                <SectionBand num={nAnomalies} title="Anomalies constatées" />
                 <View style={s.check}>
                   <Text style={[s.checkMark, s.checkMarkRed]}>✗</Text>
                   <Text style={s.checkLabel}>{data.anomalies![0]}</Text>
@@ -576,10 +713,29 @@ export function AttestationDocument({ data, photos }: AttestationPDFProps) {
             </View>
           ) : null}
 
-          {/* Photos */}
-          {(photos?.length ?? 0) > 0 ? (
+          {/* Variante conforme-recommandations / diagnostic-vente — recommandations */}
+          {nRecommandations ? (
             <View>
-              <SectionBand num={data.variante === 'non-conforme' || (data.variante === 'fosse-septique' && data.fosse) ? 5 : 4} title="Documents photographiques" />
+              <View wrap={false}>
+                <SectionBand num={nRecommandations} title="Recommandations" />
+                <View style={s.check}>
+                  <Text style={[s.checkMark, { color: C.gold }]}>▶</Text>
+                  <Text style={s.checkLabel}>{data.recommandations![0]}</Text>
+                </View>
+              </View>
+              {data.recommandations!.slice(1).map((r, i) => (
+                <View key={i} style={s.check} wrap={false}>
+                  <Text style={[s.checkMark, { color: C.gold }]}>▶</Text>
+                  <Text style={s.checkLabel}>{r}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {/* Photos */}
+          {nPhotos ? (
+            <View>
+              <SectionBand num={nPhotos} title="Documents photographiques" />
               <View style={s.photosGrid}>
                 {photos.map((p, i) => (
                   <View key={i} style={s.photoCell} wrap={false}>
@@ -595,11 +751,10 @@ export function AttestationDocument({ data, photos }: AttestationPDFProps) {
           ) : null}
 
           {/* Conclusion */}
-          {data.conclusion ? (
+          {nConclusion ? (
             <View>
-              {/* bandeau + 1ʳᵉ ligne solidaires */}
               <View wrap={false}>
-                <SectionBand num={(photos?.length ?? 0) > 0 ? ((data.variante !== 'tout-a-legout') ? 6 : 5) : ((data.variante !== 'tout-a-legout') ? 5 : 4)} title="Conclusion technique" />
+                <SectionBand num={nConclusion} title="Conclusion technique" />
                 <Text style={s.para}>{data.conclusion}</Text>
               </View>
               {data.reserves ? (

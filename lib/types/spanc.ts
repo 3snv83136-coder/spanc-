@@ -1,0 +1,192 @@
+// Types métier SPANC — Service Public d'Assainissement Non Collectif
+// Conforme aux arrêtés du 7 septembre 2009 et du 27 avril 2012
+
+export type TypeControle =
+  | 'conception'   // Contrôle de conception (installation neuve / réhabilitation)
+  | 'execution'    // Contrôle d'exécution des travaux (tranchée ouverte)
+  | 'periodique'   // Contrôle périodique de bon fonctionnement
+  | 'vente'        // Diagnostic de vente immobilière
+
+export type AvisConformite =
+  | 'conforme'                          // ✅ aucune action requise
+  | 'conforme_recommandations'          // 🟡 améliorations souhaitables
+  | 'non_conforme'                      // ❌ travaux obligatoires (délai 4 ans)
+  | 'non_conforme_risque_sanitaire'     // 🚨 urgence
+
+export type TypePretraitement =
+  | 'fosse_toutes_eaux'
+  | 'fosse_septique'
+  | 'bac_graisses'
+  | 'micro_station'
+  | 'toilettes_seches'
+
+export type TypeTraitement =
+  | 'tranchees_epandage'
+  | 'filtre_sable_vertical'
+  | 'filtre_compact'
+  | 'tertre_filtrant'
+  | 'phytoepuration'
+  | 'micro_station_epuration'
+
+export type TypeRejet =
+  | 'infiltration_sol'
+  | 'reseau_collectif'
+  | 'cours_eau'
+  | 'puits_infiltration'
+
+export type StatutPointControle = 'conforme' | 'non_conforme' | 'non_verifie'
+
+export interface UsagerSPANC {
+  nom: string
+  prenom: string
+  adresse: string
+  codePostal: string
+  commune: string
+  sectionCadastrale: string
+  numeroParcelle: string
+  email?: string
+  telephone?: string
+  nbPiecesPrincipales?: number
+}
+
+export interface FiliereSPANC {
+  typePretraitement?: TypePretraitement | ''
+  volumePretraitement?: number
+  typeTraitement?: TypeTraitement | ''
+  typeRejet?: TypeRejet | ''
+  dateInstallation?: string
+  niveauBoues?: number // 0-100 %
+  derniereVidange?: string
+}
+
+export interface PointControle {
+  label: string
+  statut: StatutPointControle
+}
+
+export interface RapportSPANC {
+  id: string
+  numeroRapport: string                 // ex: SPANC-2026-1714234567890
+  typeControle: TypeControle
+  dateControle: string
+  technicien: string
+  usager: UsagerSPANC
+  filiere: FiliereSPANC
+  checkboxes: Record<string, boolean>
+  dicteeText: string
+  constatTechnique: string
+  pointsControles: PointControle[]
+  evaluationConformite: string
+  prescriptions: string[]
+  observationsTechnicien: string
+  avisConformite: AvisConformite
+  prochaineEcheance: string             // ex: "10 ans", "4 ans", "1 an"
+  photos: string[]                      // URLs ou data URLs
+  pdfUrl?: string
+  envoye?: boolean
+  dateEnvoi?: string
+}
+
+// ============ Helpers / Labels ============
+
+export const TYPE_CONTROLE_LABELS: Record<TypeControle, { label: string; icon: string; desc: string }> = {
+  conception: {
+    label: 'Contrôle de conception',
+    icon: '🏗️',
+    desc: 'Installation neuve / réhabilitation',
+  },
+  execution: {
+    label: "Contrôle d'exécution",
+    icon: '🔨',
+    desc: 'Tranchée ouverte — travaux',
+  },
+  periodique: {
+    label: 'Contrôle périodique',
+    icon: '🔄',
+    desc: 'Bon fonctionnement',
+  },
+  vente: {
+    label: 'Diagnostic de vente',
+    icon: '🏠',
+    desc: 'Transaction immobilière',
+  },
+}
+
+export const AVIS_LABELS: Record<AvisConformite, { label: string; short: string; icon: string; tone: string }> = {
+  conforme: {
+    label: 'Conforme — aucune action requise',
+    short: 'Conforme',
+    icon: '✅',
+    tone: 'border-emerald-500 bg-emerald-50 text-emerald-900',
+  },
+  conforme_recommandations: {
+    label: 'Conforme avec recommandations',
+    short: 'Conforme + recommandations',
+    icon: '🟡',
+    tone: 'border-amber-500 bg-amber-50 text-amber-900',
+  },
+  non_conforme: {
+    label: 'Non conforme — travaux obligatoires (délai 4 ans)',
+    short: 'Non conforme',
+    icon: '❌',
+    tone: 'border-red-500 bg-red-50 text-red-900',
+  },
+  non_conforme_risque_sanitaire: {
+    label: 'Non conforme — risque sanitaire (urgence)',
+    short: 'Risque sanitaire',
+    icon: '🚨',
+    tone: 'border-red-700 bg-red-100 text-red-950',
+  },
+}
+
+export const PRETRAITEMENT_LABELS: Record<TypePretraitement, string> = {
+  fosse_toutes_eaux: 'Fosse toutes eaux',
+  fosse_septique: 'Fosse septique',
+  bac_graisses: 'Bac à graisses',
+  micro_station: 'Micro-station',
+  toilettes_seches: 'Toilettes sèches',
+}
+
+export const TRAITEMENT_LABELS: Record<TypeTraitement, string> = {
+  tranchees_epandage: "Tranchées d'épandage",
+  filtre_sable_vertical: 'Filtre à sable vertical',
+  filtre_compact: 'Filtre compact',
+  tertre_filtrant: 'Tertre filtrant',
+  phytoepuration: 'Phytoépuration',
+  micro_station_epuration: "Micro-station d'épuration",
+}
+
+export const REJET_LABELS: Record<TypeRejet, string> = {
+  infiltration_sol: 'Infiltration dans le sol',
+  reseau_collectif: 'Réseau collectif (eaux pluviales)',
+  cours_eau: "Cours d'eau",
+  puits_infiltration: "Puits d'infiltration",
+}
+
+// Délai standard avant prochain contrôle selon avis
+export function prochaineEcheanceParDefaut(avis: AvisConformite, type: TypeControle): string {
+  if (type === 'vente') return '3 ans'
+  switch (avis) {
+    case 'conforme': return '10 ans'
+    case 'conforme_recommandations': return '10 ans'
+    case 'non_conforme': return '4 ans'
+    case 'non_conforme_risque_sanitaire': return '1 an'
+  }
+}
+
+// Génère un numéro de rapport unique : SPANC-{YYYY}-{timestamp}
+export function genererNumeroRapport(date: Date = new Date()): string {
+  return `SPANC-${date.getFullYear()}-${date.getTime()}`
+}
+
+// Liste des points de contrôle standards (utilisés en checklist + rapport)
+export const POINTS_CONTROLES_STANDARDS: { key: string; label: string }[] = [
+  { key: 'regard_accessible', label: 'Regard accessible au niveau du sol' },
+  { key: 'ventilation_primaire', label: 'Ventilation primaire présente et fonctionnelle' },
+  { key: 'ventilation_secondaire', label: 'Ventilation secondaire présente' },
+  { key: 'vidange_recente', label: 'Dernière vidange < 4 ans (facture fournie)' },
+  { key: 'absence_ecoulement', label: "Absence d'écoulement superficiel" },
+  { key: 'absence_odeurs', label: "Absence d'odeurs anormales" },
+  { key: 'absence_retour', label: 'Absence de retour en surface' },
+  { key: 'distance_captages', label: 'Distance captages > 35 m respectée' },
+]
