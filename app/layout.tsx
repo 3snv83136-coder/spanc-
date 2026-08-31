@@ -21,7 +21,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body className={inter.className}>
+      <body className={`${inter.className} antialiased`}>
         <SessionProvider>{children}</SessionProvider>
       </body>
     </html>

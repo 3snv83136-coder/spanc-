@@ -3,24 +3,68 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --spanc-deep: #0a1a3d;
+  --spanc-mid: #0e2a52;
+  --spanc-dark: #071026;
+  --spanc-accent: #f97316;
+  --spanc-accent-soft: #fdba74;
+  --background: #0a1a3d;
+  --foreground: #ffffff;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: inherit;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   -webkit-text-size-adjust: 100%;
 }
 
-/* Anti-zoom iOS sur focus input (font-size < 16px déclenche le zoom auto Safari) */
+/* Anti-zoom iOS sur focus input */
 input, select, textarea {
   font-size: 16px !important;
+}
+
+@layer components {
+  .spanc-card {
+    @apply rounded-2xl bg-gradient-to-br from-[#0e2a52]/85 via-[#102a43]/85 to-[#071026]/90 p-5 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] ring-1 ring-white/10 backdrop-blur-xl;
+  }
+
+  .spanc-input {
+    @apply w-full rounded-xl bg-white/5 px-3 py-2.5 text-white outline-none ring-1 ring-white/15 transition-colors placeholder:text-white/30 focus:ring-orange-400;
+  }
+
+  .spanc-label {
+    @apply mb-1 block text-[10px] font-bold uppercase tracking-[0.25em] text-orange-300/80 sm:text-[11px];
+  }
+
+  .spanc-title {
+    @apply text-xl font-black uppercase tracking-wide text-white sm:text-2xl;
+  }
+
+  .spanc-btn-primary {
+    @apply rounded-xl bg-orange-500 px-5 py-3 font-bold text-white shadow-lg shadow-orange-500/20 transition-colors hover:bg-orange-600 disabled:bg-white/10 disabled:text-white/40;
+  }
+
+  .spanc-btn-secondary {
+    @apply rounded-xl bg-white/5 px-5 py-3 font-bold text-white ring-1 ring-white/15 transition-colors hover:ring-orange-400;
+  }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* Cartographie Leaflet */
+.carto-equipment-icon,
+.carto-text-icon {
+  background: transparent !important;
+  border: none !important;
+}
+.leaflet-container {
+  font-family: inherit;
 }

@@ -108,6 +108,7 @@ const s = StyleSheet.create({
   avisEcheance: { color: C.text, fontSize: 9.5 },
 
   photosGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
+  planImage: { width: '100%', maxHeight: 220, objectFit: 'contain', marginTop: 6, borderWidth: 1, borderColor: C.border },
   photoCell: { width: '50%', paddingHorizontal: 6, marginBottom: 12 },
   photoCard: { borderWidth: 1, borderColor: C.borderDark, padding: 6, backgroundColor: C.white },
   photoImg: { width: '100%', height: 140, objectFit: 'cover' },
@@ -142,6 +143,7 @@ const fmtDateFR = (raw: string) => {
 interface PDFProps {
   rapport: RapportSPANC
   photos?: { url: string; legende?: string }[]
+  planImage?: string
 }
 
 const Header = () => (
@@ -183,7 +185,7 @@ function avisStyles(avis: RapportSPANC['avisConformite']) {
   }
 }
 
-export function RapportSPANCDocument({ rapport, photos = [] }: PDFProps) {
+export function RapportSPANCDocument({ rapport, photos = [], planImage }: PDFProps) {
   const u = rapport.usager
   const f = rapport.filiere
   const av = AVIS_LABELS[rapport.avisConformite]
@@ -217,6 +219,7 @@ export function RapportSPANCDocument({ rapport, photos = [] }: PDFProps) {
   const nEval = rapport.evaluationConformite ? ++n : null
   const nPresc = rapport.prescriptions?.length ? ++n : null
   const nObs = rapport.observationsTechnicien ? ++n : null
+  const nPlan = planImage ? ++n : null
   const nPhotos = photos?.length ? ++n : null
 
   return (
@@ -326,7 +329,16 @@ export function RapportSPANCDocument({ rapport, photos = [] }: PDFProps) {
             </View>
           ) : null}
 
-          {/* 8. Photos */}
+          {/* Schéma d'installation */}
+          {nPlan ? (
+            <View>
+              <SectionBand num={nPlan} title="Schéma d'installation (cartographie)" />
+              {/* eslint-disable-next-line jsx-a11y/alt-text */}
+              <Image src={planImage!} style={s.planImage} />
+            </View>
+          ) : null}
+
+          {/* Photos */}
           {nPhotos ? (
             <View>
               <SectionBand num={nPhotos} title="Documents photographiques" />
@@ -377,10 +389,10 @@ interface DownloadButtonProps extends PDFProps {
   label?: string
 }
 
-export default function RapportSPANCDownloadButton({ rapport, photos = [], filename, className, label }: DownloadButtonProps) {
+export default function RapportSPANCDownloadButton({ rapport, photos = [], planImage, filename, className, label }: DownloadButtonProps) {
   const fname = filename || `rapport-${rapport.numeroRapport}.pdf`
   return (
-    <PDFDownloadLink document={<RapportSPANCDocument rapport={rapport} photos={photos} />} fileName={fname}>
+    <PDFDownloadLink document={<RapportSPANCDocument rapport={rapport} photos={photos} planImage={planImage} />} fileName={fname}>
       {({ loading }) => (
         <button
           type="button"

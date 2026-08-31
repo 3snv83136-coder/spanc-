@@ -4,6 +4,7 @@ import Link from "next/link"
 import dynamic from "next/dynamic"
 import VoiceRecorder from "@/components/VoiceRecorder"
 import CommuneSensCombobox from "@/components/CommuneSensCombobox"
+import CadastreFields from "@/components/CadastreFields"
 import {
   TYPE_CONTROLE_LABELS,
   AVIS_LABELS,
@@ -23,6 +24,12 @@ import {
   type StatutPointControle,
 } from "@/lib/types/spanc"
 import { findCommuneByName } from "@/lib/communes-sens"
+import { saveDossier } from "@/lib/sispea/dossiers"
+import { loadCartoPlan } from "@/lib/cartographie/storage"
+
+function communeInsee(nom: string): string | null {
+  return findCommuneByName(nom)?.insee ?? null
+}
 
 const RapportSPANCDownloadButton = dynamic(() => import("@/components/RapportSPANCPDF"), { ssr: false })
 
@@ -136,7 +143,7 @@ export default function NouveauControleSPANCPage() {
     if (technicien && typeof window !== 'undefined') localStorage.setItem('spanc_technicien', technicien)
   }, [technicien])
 
-  function selectCommune(c: { nom: string; cp: string }) {
+  function selectCommune(c: { nom: string; cp: string; insee: string }) {
     setCommune(c.nom)
     if (!codePostal) setCodePostal(c.cp)
   }
@@ -231,6 +238,23 @@ export default function NouveauControleSPANCPage() {
     setRapport({ ...rapport, pointsControles: next })
   }
 
+  function persistDossier(r: RapportSPANC) {
+    saveDossier({
+      numeroRapport: r.numeroRapport,
+      typeControle: r.typeControle,
+      dateControle: r.dateControle,
+      avisConformite: r.avisConformite,
+      usager: {
+        nom: r.usager.nom,
+        prenom: r.usager.prenom,
+        adresse: r.usager.adresse,
+        commune: r.usager.commune,
+        sectionCadastrale: r.usager.sectionCadastrale,
+        numeroParcelle: r.usager.numeroParcelle,
+      },
+    })
+  }
+
   async function handleSendEmail() {
     if (!rapport) return
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) { setError('Email usager invalide.'); return }
@@ -269,12 +293,19 @@ export default function NouveauControleSPANCPage() {
     setDictee(''); setPhotos([])
   }
 
+  function getPlanImageUrl(): string | undefined {
+    const insee = communeInsee(commune)
+    if (!insee || !sectionCadastrale || !numeroParcelle) return undefined
+    return loadCartoPlan(insee, sectionCadastrale, numeroParcelle)?.exportImage
+  }
+
   const idx = stepperIdx(step)
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-32">
+    <div className="relative min-h-screen overflow-hidden bg-[#0a1a3d] text-white pb-32">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#0a1a3d] via-[#0e2a52] to-[#071026]" />
       {/* Nav */}
-      <nav className="bg-[#0e2a52] text-white px-4 py-3 sm:px-6 sm:py-4 shadow-lg sticky top-0 z-30">
+      <nav className="relative z-30 bg-[#0e2a52]/90 backdrop-blur-xl text-white px-4 py-3 sm:px-6 sm:py-4 shadow-lg ring-1 ring-white/10 sticky top-0">
         <div className="max-w-3xl mx-auto flex justify-between items-center gap-3">
           <Link href="/" className="flex items-center gap-2 text-sm hover:opacity-80">
             <span className="text-xl">←</span>
@@ -305,7 +336,7 @@ export default function NouveauControleSPANCPage() {
       </nav>
 
       {/* Stepper */}
-      <div className="bg-white border-b border-slate-200 shadow-sm sticky top-[52px] sm:top-[60px] z-20">
+      <div className="bg-white border-b border-white/10 shadow-sm sticky top-[52px] sm:top-[60px] z-20">
         <div className="max-w-3xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             {STEPPER.map((s, i) => {
@@ -317,10 +348,10 @@ export default function NouveauControleSPANCPage() {
                     <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-bold transition-all ${
                       done ? 'bg-emerald-500 text-white shadow-md' :
                       active ? 'bg-[#0e2a52] text-white shadow-lg ring-4 ring-blue-100' :
-                      'bg-slate-100 text-slate-400 border-2 border-slate-200'
+                      'bg-white/5 text-white/50 border-2 border-white/10'
                     }`}>{done ? '✓' : s.icon}</div>
                     <span className={`text-[10px] sm:text-xs mt-1 font-semibold text-center leading-tight ${
-                      active ? 'text-[#0e2a52]' : done ? 'text-emerald-600' : 'text-slate-400'
+                      active ? 'text-white' : done ? 'text-emerald-300' : 'text-white/50'
                     }`}>{s.label}</span>
                   </div>
                   {i < STEPPER.length - 1 && (
@@ -335,15 +366,15 @@ export default function NouveauControleSPANCPage() {
         </div>
       </div>
 
-      <main className="max-w-3xl mx-auto px-4 py-5 space-y-4">
+      <main className="relative z-10 max-w-3xl mx-auto px-4 py-5 space-y-4">
         {/* ═════ ÉTAPE 1 — SAISIE ═════ */}
         {step === 'saisie' && (
           <>
             {/* Type de contrôle */}
-            <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4">
+            <section className="spanc-card p-5 space-y-4">
               <div>
-                <h2 className="text-xl font-black text-[#0e2a52]">Type de contrôle</h2>
-                <p className="text-sm text-slate-500 mt-1">Choisis la mission du jour.</p>
+                <h2 className="text-xl font-black text-white">Type de contrôle</h2>
+                <p className="text-sm text-white/60 mt-1">Choisis la mission du jour.</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {(Object.keys(TYPE_CONTROLE_LABELS) as TypeControle[]).map(t => {
@@ -352,14 +383,14 @@ export default function NouveauControleSPANCPage() {
                     <button key={t} type="button" onClick={() => setTypeControle(t)}
                       className={`p-3 rounded-xl border-2 text-left transition-all ${
                         typeControle === t
-                          ? 'border-blue-500 bg-blue-50 shadow-sm'
-                          : 'border-slate-200 bg-white hover:border-slate-300'
+                          ? 'border-orange-400 bg-orange-500/10 ring-1 ring-orange-400/30 shadow-sm'
+                          : 'border-white/10 bg-white hover:border-slate-300'
                       }`}>
                       <div className="flex items-start gap-2">
                         <span className="text-2xl leading-none">{meta.icon}</span>
                         <div>
-                          <div className={`font-bold text-sm ${typeControle === t ? 'text-[#0e2a52]' : 'text-slate-800'}`}>{meta.label}</div>
-                          <div className="text-[11px] text-slate-500 mt-0.5">{meta.desc}</div>
+                          <div className={`font-bold text-sm ${typeControle === t ? 'text-white' : 'text-white'}`}>{meta.label}</div>
+                          <div className="text-[11px] text-white/60 mt-0.5">{meta.desc}</div>
                         </div>
                       </div>
                     </button>
@@ -369,8 +400,8 @@ export default function NouveauControleSPANCPage() {
             </section>
 
             {/* Usager */}
-            <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
-              <h2 className="text-xl font-black text-[#0e2a52]">Usager & bien</h2>
+            <section className="spanc-card p-5 space-y-3">
+              <h2 className="text-xl font-black text-white">Usager & bien</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Prénom" value={prenom} onChange={setPrenom} />
                 <Field label="Nom" value={nom} onChange={setNom} />
@@ -378,30 +409,45 @@ export default function NouveauControleSPANCPage() {
                   <Field label="Adresse" value={adresse} onChange={setAdresse} placeholder="ex: 5 rue des Champs" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Commune *</label>
+                  <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1">Commune *</label>
                   <CommuneSensCombobox value={commune} onChange={setCommune} onSelect={selectCommune} />
                 </div>
                 <Field label="Code postal" value={codePostal} onChange={setCodePostal} placeholder="89100" />
-                <Field label="Section cadastrale" value={sectionCadastrale} onChange={setSectionCadastrale} placeholder="ex: AB" />
-                <Field label="N° parcelle" value={numeroParcelle} onChange={setNumeroParcelle} placeholder="ex: 0042" />
+                <CadastreFields
+                  insee={communeInsee(commune)}
+                  section={sectionCadastrale}
+                  numero={numeroParcelle}
+                  onSectionChange={setSectionCadastrale}
+                  onNumeroChange={setNumeroParcelle}
+                />
+                {adresse && commune && sectionCadastrale && numeroParcelle && (
+                  <div className="sm:col-span-2">
+                    <Link
+                      href={`/cartographie?adresse=${encodeURIComponent(adresse)}&cp=${encodeURIComponent(codePostal)}&commune=${encodeURIComponent(commune)}&section=${encodeURIComponent(sectionCadastrale)}&numero=${encodeURIComponent(numeroParcelle)}`}
+                      className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-700 bg-cyan-50 border border-cyan-200 rounded-xl px-4 py-2.5 hover:bg-cyan-100"
+                    >
+                      🗺️ Éditer le plan d&apos;installation sur fond cadastral
+                    </Link>
+                  </div>
+                )}
                 <Field label="Email" value={email} onChange={setEmail} placeholder="usager@exemple.fr" type="email" />
                 <Field label="Téléphone" value={telephone} onChange={setTelephone} placeholder="06 …" />
                 <NumberField label="Pièces principales" value={nbPieces} onChange={setNbPieces} placeholder="4" />
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Date du contrôle</label>
-                  <input type="date" value={dateControle} onChange={e => setDateControle(e.target.value)} className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2.5 text-base" />
+                  <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1">Date du contrôle</label>
+                  <input type="date" value={dateControle} onChange={e => setDateControle(e.target.value)} className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-3 py-2.5 text-base" />
                 </div>
               </div>
             </section>
 
             {/* Filière ANC */}
             {showFiliere && (
-              <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
-                <h2 className="text-xl font-black text-[#0e2a52]">Filière ANC</h2>
+              <section className="spanc-card p-5 space-y-3">
+                <h2 className="text-xl font-black text-white">Filière ANC</h2>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Prétraitement</label>
-                  <select value={typePretraitement} onChange={e => setTypePretraitement(e.target.value as TypePretraitement | '')} className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2.5 text-base bg-white">
+                  <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1">Prétraitement</label>
+                  <select value={typePretraitement} onChange={e => setTypePretraitement(e.target.value as TypePretraitement | '')} className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-3 py-2.5 text-base bg-white">
                     <option value="">— Choisir —</option>
                     {(Object.keys(PRETRAITEMENT_LABELS) as TypePretraitement[]).map(t => (
                       <option key={t} value={t}>{PRETRAITEMENT_LABELS[t]}</option>
@@ -415,8 +461,8 @@ export default function NouveauControleSPANCPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Traitement</label>
-                  <select value={typeTraitement} onChange={e => setTypeTraitement(e.target.value as TypeTraitement | '')} className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2.5 text-base bg-white">
+                  <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1">Traitement</label>
+                  <select value={typeTraitement} onChange={e => setTypeTraitement(e.target.value as TypeTraitement | '')} className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-3 py-2.5 text-base bg-white">
                     <option value="">— Choisir —</option>
                     {(Object.keys(TRAITEMENT_LABELS) as TypeTraitement[]).map(t => (
                       <option key={t} value={t}>{TRAITEMENT_LABELS[t]}</option>
@@ -425,8 +471,8 @@ export default function NouveauControleSPANCPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Rejet / exutoire</label>
-                  <select value={typeRejet} onChange={e => setTypeRejet(e.target.value as TypeRejet | '')} className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2.5 text-base bg-white">
+                  <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1">Rejet / exutoire</label>
+                  <select value={typeRejet} onChange={e => setTypeRejet(e.target.value as TypeRejet | '')} className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-3 py-2.5 text-base bg-white">
                     <option value="">— Choisir —</option>
                     {(Object.keys(REJET_LABELS) as TypeRejet[]).map(t => (
                       <option key={t} value={t}>{REJET_LABELS[t]}</option>
@@ -439,8 +485,8 @@ export default function NouveauControleSPANCPage() {
                 {/* Slider niveau boues */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Niveau de boues</label>
-                    <span className={`text-sm font-bold ${niveauBoues <= 30 ? 'text-emerald-600' : niveauBoues <= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                    <label className="text-xs font-bold text-white/60 uppercase tracking-wider">Niveau de boues</label>
+                    <span className={`text-sm font-bold ${niveauBoues <= 30 ? 'text-emerald-300' : niveauBoues <= 50 ? 'text-amber-300' : 'text-red-600'}`}>
                       {niveauBoues}%{niveauBoues > 50 ? ' · vidange recommandée' : ''}
                     </span>
                   </div>
@@ -456,13 +502,13 @@ export default function NouveauControleSPANCPage() {
 
             {/* Grille de contrôle */}
             {showCheckboxes && (
-              <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-2">
-                <h2 className="text-xl font-black text-[#0e2a52]">Grille de contrôle terrain</h2>
-                <p className="text-xs text-slate-500">Coche les points conformes.</p>
+              <section className="spanc-card p-5 space-y-2">
+                <h2 className="text-xl font-black text-white">Grille de contrôle terrain</h2>
+                <p className="text-xs text-white/60">Coche les points conformes.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
                   {POINTS_CONTROLES_STANDARDS.map(p => (
                     <label key={p.key} className={`flex items-start gap-2 p-2.5 rounded-lg border-2 cursor-pointer transition ${
-                      checkboxes[p.key] ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-white hover:border-slate-300'
+                      checkboxes[p.key] ? 'border-emerald-400 bg-emerald-50' : 'border-white/10 bg-white hover:border-slate-300'
                     }`}>
                       <input
                         type="checkbox"
@@ -470,7 +516,7 @@ export default function NouveauControleSPANCPage() {
                         onChange={e => setCheckboxes(prev => ({ ...prev, [p.key]: e.target.checked }))}
                         className="mt-0.5 h-4 w-4 accent-emerald-600"
                       />
-                      <span className={`text-sm ${checkboxes[p.key] ? 'text-emerald-900 font-semibold' : 'text-slate-700'}`}>{p.label}</span>
+                      <span className={`text-sm ${checkboxes[p.key] ? 'text-emerald-900 font-semibold' : 'text-white/80'}`}>{p.label}</span>
                     </label>
                   ))}
                 </div>
@@ -478,9 +524,9 @@ export default function NouveauControleSPANCPage() {
             )}
 
             {/* Avis du technicien */}
-            <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
-              <h2 className="text-xl font-black text-[#0e2a52]">Avis du technicien</h2>
-              <p className="text-xs text-slate-500">L&apos;IA pourra réviser cet avis selon ta dictée.</p>
+            <section className="spanc-card p-5 space-y-3">
+              <h2 className="text-xl font-black text-white">Avis du technicien</h2>
+              <p className="text-xs text-white/60">L&apos;IA pourra réviser cet avis selon ta dictée.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {(Object.keys(AVIS_LABELS) as AvisConformite[]).map(a => {
                   const meta = AVIS_LABELS[a]
@@ -488,7 +534,7 @@ export default function NouveauControleSPANCPage() {
                   return (
                     <button key={a} type="button" onClick={() => setAvisAgent(a)}
                       className={`p-3 rounded-xl border-2 text-left transition-all ${
-                        active ? `${meta.tone} shadow-md` : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                        active ? `${meta.tone} shadow-md` : 'border-white/10 bg-white text-white/70 hover:border-slate-300'
                       }`}>
                       <div className="flex items-start gap-2">
                         <span className="text-xl">{meta.icon}</span>
@@ -501,12 +547,12 @@ export default function NouveauControleSPANCPage() {
             </section>
 
             {/* Dictée */}
-            <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4">
+            <section className="spanc-card p-5 space-y-4">
               <div>
-                <h2 className="text-xl font-black text-[#0e2a52]">Dictée du contrôle</h2>
-                <p className="text-sm text-slate-500 mt-1">Détaille état de la fosse, ventilation, épandage, rejet, dernière vidange…</p>
+                <h2 className="text-xl font-black text-white">Dictée du contrôle</h2>
+                <p className="text-sm text-white/60 mt-1">Détaille état de la fosse, ventilation, épandage, rejet, dernière vidange…</p>
               </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+              <div className="bg-blue-500/10 border border-blue-400/30 rounded-xl p-3">
                 <VoiceRecorder onTranscription={t => setDictee(prev => prev ? prev + ' ' + t : t)} />
               </div>
               <textarea
@@ -514,20 +560,20 @@ export default function NouveauControleSPANCPage() {
                 onChange={e => setDictee(e.target.value)}
                 rows={6}
                 placeholder="Dicte tes observations : état de la fosse, niveau de boues, ventilation, état de l'épandage, rejet, date dernière vidange…"
-                className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-base"
+                className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-4 py-3 text-base"
               />
-              <div className="flex justify-between text-xs text-slate-400">
+              <div className="flex justify-between text-xs text-white/50">
                 <span>{dictee.length} car.</span>
                 <span>{dictee.length < 50 ? 'Détaille davantage' : '✓ OK'}</span>
               </div>
             </section>
 
             {/* Photos */}
-            <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
+            <section className="spanc-card p-5 space-y-3">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-xl font-black text-[#0e2a52]">Photos</h2>
-                  <p className="text-sm text-slate-500">Regards, ventilation, exutoire — min. 1 photo</p>
+                  <h2 className="text-xl font-black text-white">Photos</h2>
+                  <p className="text-sm text-white/60">Regards, ventilation, exutoire — min. 1 photo</p>
                 </div>
                 <span className="bg-[#0e2a52] text-white text-xs font-bold w-7 h-7 rounded-full flex items-center justify-center">{photos.length}</span>
               </div>
@@ -537,11 +583,11 @@ export default function NouveauControleSPANCPage() {
                   {photos.map((p, i) => (
                     <div key={p.preview} className="relative">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={p.preview} alt={p.legende} className="w-full h-32 object-cover rounded-lg border border-slate-200" />
+                      <img src={p.preview} alt={p.legende} className="w-full h-32 object-cover rounded-lg border border-white/10" />
                       <input
                         value={p.legende}
                         onChange={e => setLegende(i, e.target.value)}
-                        className="w-full text-[11px] border border-slate-200 rounded mt-1 px-1.5 py-0.5"
+                        className="w-full text-[11px] border border-white/10 rounded mt-1 px-1.5 py-0.5"
                       />
                       <button onClick={() => removePhoto(i)} type="button" aria-label="Supprimer"
                         className="absolute top-1 right-1 bg-white/95 w-7 h-7 rounded-full text-red-600 font-bold shadow flex items-center justify-center text-sm">✕</button>
@@ -555,7 +601,7 @@ export default function NouveauControleSPANCPage() {
                   📸 Prendre photo
                   <input id="add-cam" type="file" accept="image/*" capture="environment" onChange={e => { addPhoto(e.target.files?.[0] || null); (e.target as HTMLInputElement).value = '' }} className="hidden" />
                 </label>
-                <label htmlFor="add-gal" className="bg-white border-2 border-[#0e2a52] text-[#0e2a52] px-4 py-3.5 rounded-xl text-sm font-bold cursor-pointer active:scale-95 transition text-center">
+                <label htmlFor="add-gal" className="bg-white border-2 border-[#0e2a52] text-white px-4 py-3.5 rounded-xl text-sm font-bold cursor-pointer active:scale-95 transition text-center">
                   🖼 Galerie
                   <input id="add-gal" type="file" accept="image/*" multiple onChange={async e => {
                     const files = Array.from(e.target.files || [])
@@ -570,12 +616,12 @@ export default function NouveauControleSPANCPage() {
 
         {/* ═════ GENERATING ═════ */}
         {step === 'generating' && (
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-8 text-center space-y-3">
+          <div className="bg-blue-500/10 border border-blue-400/30 rounded-2xl p-8 text-center space-y-3">
             <div className="text-5xl animate-bounce">🤖</div>
-            <p className="text-base font-bold text-blue-900">L&apos;IA rédige votre rapport SPANC…</p>
-            <p className="text-xs text-slate-500">Analyse de la dictée, structuration des points de contrôle, évaluation de conformité…</p>
+            <p className="text-base font-bold text-orange-100">L&apos;IA rédige votre rapport SPANC…</p>
+            <p className="text-xs text-white/60">Analyse de la dictée, structuration des points de contrôle, évaluation de conformité…</p>
             <div className="h-1.5 bg-blue-100 rounded-full overflow-hidden max-w-xs mx-auto">
-              <div className="h-full bg-blue-500 animate-pulse rounded-full" style={{ width: '70%' }} />
+              <div className="h-full bg-blue-500/100 animate-pulse rounded-full" style={{ width: '70%' }} />
             </div>
           </div>
         )}
@@ -586,7 +632,7 @@ export default function NouveauControleSPANCPage() {
             rapport={rapport}
             onPatch={patchRapport}
             onPatchPC={patchPointControle}
-            onContinue={() => setStep('rapport')}
+            onContinue={() => { persistDossier(rapport); setStep('rapport') }}
             onBack={() => setStep('saisie')}
             onRegenerate={handleGenerate}
           />
@@ -597,6 +643,7 @@ export default function NouveauControleSPANCPage() {
           <RapportApercu
             rapport={rapport}
             photos={photos}
+            planImage={getPlanImageUrl()}
             email={email}
             sending={step === 'sending'}
             onSendEmail={handleSendEmail}
@@ -607,23 +654,23 @@ export default function NouveauControleSPANCPage() {
 
         {/* ═════ ÉTAPE 4 — TERMINÉ ═════ */}
         {step === 'done' && rapport && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center space-y-5">
-            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-3xl">🎉</div>
-            <h2 className="text-2xl font-black text-emerald-700">Rapport généré !</h2>
+          <div className="spanc-card p-8 text-center space-y-5">
+            <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto text-3xl">🎉</div>
+            <h2 className="text-2xl font-black text-emerald-300">Rapport généré !</h2>
             {emailSent && (
-              <p className="text-emerald-600 font-semibold">📧 Email envoyé à {email}</p>
+              <p className="text-emerald-300 font-semibold">📧 Email envoyé à {email}</p>
             )}
-            <div className="bg-slate-50 rounded-xl p-4 text-left space-y-1">
-              <div className="text-xs text-slate-500 uppercase tracking-wider">Numéro</div>
-              <div className="font-bold text-[#0e2a52]">{rapport.numeroRapport}</div>
-              <div className="text-xs text-slate-500 uppercase tracking-wider mt-2">Avis</div>
+            <div className="bg-white/5 rounded-xl p-4 text-left space-y-1">
+              <div className="text-xs text-white/60 uppercase tracking-wider">Numéro</div>
+              <div className="font-bold text-white">{rapport.numeroRapport}</div>
+              <div className="text-xs text-white/60 uppercase tracking-wider mt-2">Avis</div>
               <div className="font-bold">{AVIS_LABELS[rapport.avisConformite].icon} {AVIS_LABELS[rapport.avisConformite].label}</div>
-              <div className="text-xs text-slate-500 uppercase tracking-wider mt-2">Prochain contrôle</div>
-              <div className="font-bold text-[#0e2a52]">dans {rapport.prochaineEcheance}</div>
+              <div className="text-xs text-white/60 uppercase tracking-wider mt-2">Prochain contrôle</div>
+              <div className="font-bold text-white">dans {rapport.prochaineEcheance}</div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-              <RapportSPANCDownloadButton rapport={rapport} photos={photos.map(p => ({ url: p.dataUrl, legende: p.legende }))} label="⬇ Télécharger le PDF" />
-              <button onClick={resetAll} className="bg-white border-2 border-[#0e2a52] text-[#0e2a52] px-5 py-3 rounded-lg font-bold hover:bg-slate-50">
+              <RapportSPANCDownloadButton rapport={rapport} photos={photos.map(p => ({ url: p.dataUrl, legende: p.legende }))} planImage={getPlanImageUrl()} label="⬇ Télécharger le PDF" />
+              <button onClick={resetAll} className="bg-white border-2 border-[#0e2a52] text-white px-5 py-3 rounded-lg font-bold hover:bg-white/5">
                 + Nouveau contrôle
               </button>
             </div>
@@ -632,15 +679,15 @@ export default function NouveauControleSPANCPage() {
 
         {/* Erreur globale */}
         {error && step !== 'generating' && step !== 'sending' && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>
+          <div className="text-red-300 bg-red-500/10 ring-1 ring-red-400/30 rounded-xl px-4 py-3 text-sm rounded-xl px-4 py-3 text-sm">{error}</div>
         )}
       </main>
 
       {/* Bottom action bar — étape saisie */}
       {step === 'saisie' && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] p-3 z-30">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-white/10 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] p-3 z-30">
           <div className="max-w-3xl mx-auto flex gap-3">
-            <Link href="/" className="flex-1 bg-slate-100 text-slate-600 py-3.5 rounded-xl font-bold text-sm text-center active:scale-95 transition-all">
+            <Link href="/" className="flex-1 bg-white/5 text-white/70 py-3.5 rounded-xl font-bold text-sm text-center active:scale-95 transition-all">
               Annuler
             </Link>
             <button
@@ -668,9 +715,9 @@ function Field({ label, value, onChange, placeholder, type = 'text' }: {
 }) {
   return (
     <div>
-      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{label}</label>
+      <label className="spanc-label">{label}</label>
       <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2.5 text-base transition-colors" />
+        className="spanc-input" />
     </div>
   )
 }
@@ -683,7 +730,7 @@ function NumberField({ label, value, onChange, placeholder }: {
 }) {
   return (
     <div>
-      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{label}</label>
+      <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1">{label}</label>
       <input
         type="number"
         value={value}
@@ -693,7 +740,7 @@ function NumberField({ label, value, onChange, placeholder }: {
         }}
         placeholder={placeholder}
         inputMode="numeric"
-        className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2.5 text-base transition-colors"
+        className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-3 py-2.5 text-base transition-colors"
       />
     </div>
   )
@@ -711,39 +758,39 @@ function RapportEditor({
 }) {
   return (
     <div className="space-y-4">
-      <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
+      <section className="spanc-card p-5 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-black text-[#0e2a52]">Vérifier le rapport généré</h2>
+          <h2 className="text-xl font-black text-white">Vérifier le rapport généré</h2>
           <span className={`text-xs font-bold px-2 py-1 rounded-md ${AVIS_LABELS[rapport.avisConformite].tone}`}>
             {AVIS_LABELS[rapport.avisConformite].icon} {AVIS_LABELS[rapport.avisConformite].short}
           </span>
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Constat technique</label>
+          <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1">Constat technique</label>
           <textarea value={rapport.constatTechnique} rows={4}
             onChange={e => onPatch('constatTechnique', e.target.value)}
-            className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2 text-sm" />
+            className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-3 py-2 text-sm" />
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Évaluation de conformité</label>
+          <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1">Évaluation de conformité</label>
           <textarea value={rapport.evaluationConformite} rows={5}
             onChange={e => onPatch('evaluationConformite', e.target.value)}
-            className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2 text-sm" />
+            className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-3 py-2 text-sm" />
         </div>
       </section>
 
       {/* Points de contrôle */}
-      <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-2">
-        <h3 className="text-base font-bold text-[#0e2a52]">Points de contrôle</h3>
+      <section className="spanc-card p-5 space-y-2">
+        <h3 className="text-base font-bold text-white">Points de contrôle</h3>
         <div className="space-y-2">
           {rapport.pointsControles.map((p, i) => (
-            <div key={i} className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2">
+            <div key={i} className="flex items-center gap-2 border border-white/10 rounded-lg px-3 py-2">
               <input value={p.label} onChange={e => onPatchPC(i, { label: e.target.value })}
                 className="flex-1 outline-none border-none text-sm" />
               <select value={p.statut} onChange={e => onPatchPC(i, { statut: e.target.value as StatutPointControle })}
-                className="text-xs font-bold border border-slate-200 rounded px-2 py-1 bg-white">
+                className="text-xs font-bold border border-white/10 rounded px-2 py-1 bg-white">
                 <option value="conforme">✓ Conforme</option>
                 <option value="non_conforme">✗ Non conforme</option>
                 <option value="non_verifie">· Non vérifié</option>
@@ -754,26 +801,26 @@ function RapportEditor({
       </section>
 
       {/* Prescriptions */}
-      <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-2">
-        <h3 className="text-base font-bold text-[#0e2a52]">Prescriptions / Recommandations</h3>
+      <section className="spanc-card p-5 space-y-2">
+        <h3 className="text-base font-bold text-white">Prescriptions / Recommandations</h3>
         <textarea
           value={rapport.prescriptions.join('\n')}
           onChange={e => onPatch('prescriptions', e.target.value.split('\n').map(s => s.trim()).filter(Boolean))}
           rows={4}
           placeholder="Une prescription par ligne…"
-          className="w-full border-2 border-slate-200 focus:border-red-500 outline-none rounded-xl px-3 py-2 text-sm"
+          className="w-full border-2 border-white/10 focus:border-red-500 outline-none rounded-xl px-3 py-2 text-sm"
         />
       </section>
 
-      <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-2">
-        <h3 className="text-base font-bold text-[#0e2a52]">Observations du technicien</h3>
+      <section className="spanc-card p-5 space-y-2">
+        <h3 className="text-base font-bold text-white">Observations du technicien</h3>
         <textarea value={rapport.observationsTechnicien} rows={3}
           onChange={e => onPatch('observationsTechnicien', e.target.value)}
-          className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2 text-sm" />
+          className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-3 py-2 text-sm" />
       </section>
 
-      <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
-        <h3 className="text-base font-bold text-[#0e2a52]">Avis & échéance</h3>
+      <section className="spanc-card p-5 space-y-3">
+        <h3 className="text-base font-bold text-white">Avis & échéance</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {(Object.keys(AVIS_LABELS) as AvisConformite[]).map(a => {
             const meta = AVIS_LABELS[a]
@@ -785,7 +832,7 @@ function RapportEditor({
                   onPatch('prochaineEcheance', prochaineEcheanceParDefaut(a, rapport.typeControle))
                 }}
                 className={`p-2.5 rounded-xl border-2 text-left transition-all ${
-                  active ? `${meta.tone} shadow-md` : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                  active ? `${meta.tone} shadow-md` : 'border-white/10 bg-white text-white/70 hover:border-slate-300'
                 }`}>
                 <span className="text-lg mr-1">{meta.icon}</span>
                 <span className="text-xs font-bold">{meta.label}</span>
@@ -794,15 +841,15 @@ function RapportEditor({
           })}
         </div>
         <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Prochaine échéance</label>
+          <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1">Prochaine échéance</label>
           <input value={rapport.prochaineEcheance} onChange={e => onPatch('prochaineEcheance', e.target.value)}
-            placeholder="ex: 10 ans" className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-3 py-2.5 text-base" />
+            placeholder="ex: 10 ans" className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-3 py-2.5 text-base" />
         </div>
       </section>
 
       <div className="flex gap-3 pb-4">
-        <button onClick={onBack} className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold text-sm">← Modifier la saisie</button>
-        <button onClick={onRegenerate} className="flex-1 bg-white border-2 border-blue-500 text-blue-700 py-3 rounded-xl font-bold text-sm">🔄 Régénérer</button>
+        <button onClick={onBack} className="flex-1 bg-white/5 text-white/80 py-3 rounded-xl font-bold text-sm">← Modifier la saisie</button>
+        <button onClick={onRegenerate} className="flex-1 bg-white border-2 border-blue-500 text-orange-200 py-3 rounded-xl font-bold text-sm">🔄 Régénérer</button>
         <button onClick={onContinue} className="flex-[2] bg-[#0e2a52] text-white py-3 rounded-xl font-bold text-sm">Voir le rapport →</button>
       </div>
     </div>
@@ -810,10 +857,11 @@ function RapportEditor({
 }
 
 function RapportApercu({
-  rapport, photos, email, sending, onSendEmail, onBack, onFinish,
+  rapport, photos, planImage, email, sending, onSendEmail, onBack, onFinish,
 }: {
   rapport: RapportSPANC
   photos: PhotoItem[]
+  planImage?: string
   email: string
   sending: boolean
   onSendEmail: () => void
@@ -823,11 +871,11 @@ function RapportApercu({
   const av = AVIS_LABELS[rapport.avisConformite]
   return (
     <div className="space-y-4">
-      <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4">
+      <section className="spanc-card p-5 space-y-4">
         <div className="text-center">
           <div className="text-[10px] uppercase tracking-[0.4em] text-amber-700 font-bold mb-2">Rapport SPANC officiel</div>
-          <h2 className="text-2xl font-black text-[#0e2a52]">{TYPE_CONTROLE_LABELS[rapport.typeControle].label}</h2>
-          <p className="text-xs text-slate-500 mt-1">{rapport.numeroRapport}</p>
+          <h2 className="text-2xl font-black text-white">{TYPE_CONTROLE_LABELS[rapport.typeControle].label}</h2>
+          <p className="text-xs text-white/60 mt-1">{rapport.numeroRapport}</p>
         </div>
 
         <div className={`border-2 rounded-2xl p-4 text-center ${av.tone}`}>
@@ -838,33 +886,33 @@ function RapportApercu({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
           <div>
-            <div className="text-xs text-slate-500 uppercase tracking-wider">Propriétaire</div>
+            <div className="text-xs text-white/60 uppercase tracking-wider">Propriétaire</div>
             <div className="font-semibold">{rapport.usager.prenom} {rapport.usager.nom}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-500 uppercase tracking-wider">Adresse</div>
+            <div className="text-xs text-white/60 uppercase tracking-wider">Adresse</div>
             <div className="font-semibold">{rapport.usager.adresse}, {rapport.usager.codePostal} {rapport.usager.commune}</div>
           </div>
           {(rapport.usager.sectionCadastrale || rapport.usager.numeroParcelle) && (
             <div className="sm:col-span-2">
-              <div className="text-xs text-slate-500 uppercase tracking-wider">Cadastre</div>
+              <div className="text-xs text-white/60 uppercase tracking-wider">Cadastre</div>
               <div className="font-semibold">Section {rapport.usager.sectionCadastrale || '—'} · Parcelle {rapport.usager.numeroParcelle || '—'}</div>
             </div>
           )}
         </div>
 
-        <div className="space-y-3 pt-3 border-t border-slate-100">
+        <div className="space-y-3 pt-3 border-t border-white/5">
           <div>
-            <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Constat technique</div>
+            <div className="text-xs text-white/60 uppercase tracking-wider mb-1">Constat technique</div>
             <p className="text-sm leading-relaxed">{rapport.constatTechnique}</p>
           </div>
           <div>
-            <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Évaluation</div>
+            <div className="text-xs text-white/60 uppercase tracking-wider mb-1">Évaluation</div>
             <p className="text-sm leading-relaxed">{rapport.evaluationConformite}</p>
           </div>
           {rapport.prescriptions.length > 0 && (
             <div>
-              <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Prescriptions</div>
+              <div className="text-xs text-white/60 uppercase tracking-wider mb-1">Prescriptions</div>
               <ul className="space-y-1 text-sm">
                 {rapport.prescriptions.map((p, i) => (
                   <li key={i} className="flex items-start gap-2"><span className="text-red-600 font-bold">▶</span><span>{p}</span></li>
@@ -875,12 +923,13 @@ function RapportApercu({
         </div>
       </section>
 
-      <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
-        <h3 className="font-bold text-[#0e2a52]">Actions</h3>
+      <section className="spanc-card p-5 space-y-3">
+        <h3 className="font-bold text-white">Actions</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <RapportSPANCDownloadButton
             rapport={rapport}
             photos={photos.map(p => ({ url: p.dataUrl, legende: p.legende }))}
+            planImage={planImage}
             label="⬇ Télécharger PDF"
             className="bg-[#0e2a52] text-white px-5 py-3.5 rounded-xl font-bold hover:bg-[#0a2047] disabled:opacity-50 w-full text-center"
           />
@@ -899,7 +948,7 @@ function RapportApercu({
       </section>
 
       <div className="flex gap-3 pb-4">
-        <button onClick={onBack} className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold text-sm">← Corriger</button>
+        <button onClick={onBack} className="flex-1 bg-white/5 text-white/80 py-3 rounded-xl font-bold text-sm">← Corriger</button>
       </div>
     </div>
   )

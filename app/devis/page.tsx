@@ -130,11 +130,11 @@ export default function DevisPage() {
   /* =================== RENDER =================== */
   if (step === 'generating') {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 max-w-md w-full text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-[#0e2a52] mb-4" />
-          <h2 className="text-xl font-black text-[#0e2a52]">Analyse de la dictée…</h2>
-          <p className="text-sm text-slate-500 mt-2">L&apos;IA structure le devis (objet, lignes, conditions, TVA).</p>
+      <div className="relative min-h-screen overflow-hidden bg-[#0a1a3d] text-white flex items-center justify-center p-6">
+        <div className="spanc-card p-8 max-w-md w-full text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-400/30 border-t-[#0e2a52] mb-4" />
+          <h2 className="text-xl font-black text-white">Analyse de la dictée…</h2>
+          <p className="text-sm text-white/60 mt-2">L&apos;IA structure le devis (objet, lignes, conditions, TVA).</p>
         </div>
       </div>
     )
@@ -157,8 +157,8 @@ export default function DevisPage() {
     }
 
     return (
-      <div className="min-h-screen bg-slate-50">
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+      <div className="relative min-h-screen overflow-hidden bg-[#0a1a3d] text-white">
+        <header className="bg-[#0e2a52]/90 backdrop-blur-xl ring-1 ring-white/10 border-b border-white/10 sticky top-0 z-10">
           <div className="max-w-4xl mx-auto px-4 py-3">
             <AppTabs />
           </div>
@@ -166,15 +166,15 @@ export default function DevisPage() {
 
         <main className="max-w-4xl mx-auto px-4 py-6 space-y-4">
           {/* Header preview */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="spanc-card p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-xl font-black text-[#0e2a52]">Devis N° {devis.numero}</h1>
-              <p className="text-sm text-slate-500">Établi le {fmtDateISOtoFR(devis.date_devis)} · valable {devis.validite_jours} jours</p>
+              <h1 className="text-xl font-black text-white">Devis N° {devis.numero}</h1>
+              <p className="text-sm text-white/60">Établi le {fmtDateISOtoFR(devis.date_devis)} · valable {devis.validite_jours} jours</p>
             </div>
             <div className="flex gap-2">
               <button
                 onClick={() => setStep('capture')}
-                className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50"
+                className="px-4 py-2 rounded-lg border border-slate-300 text-white/80 text-sm font-semibold hover:bg-white/5"
               >
                 ← Modifier la dictée
               </button>
@@ -183,8 +183,8 @@ export default function DevisPage() {
           </div>
 
           {/* Client */}
-          <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
-            <h2 className="font-bold text-[#0e2a52]">Client &amp; chantier</h2>
+          <section className="spanc-card p-5 space-y-3">
+            <h2 className="font-bold text-white">Client &amp; chantier</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Nom du client" value={clientNom} onChange={setClientNom} placeholder="M. Dupont / SAS Martin…" />
               <Field label="Adresse client" value={clientAdresse} onChange={setClientAdresse} />
@@ -199,26 +199,26 @@ export default function DevisPage() {
           </section>
 
           {/* Objet */}
-          <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-2">
-            <h2 className="font-bold text-[#0e2a52]">Objet du devis</h2>
+          <section className="spanc-card p-5 space-y-2">
+            <h2 className="font-bold text-white">Objet du devis</h2>
             <textarea
               value={devis.objet}
               onChange={e => setDevis({ ...devis, objet: e.target.value })}
               rows={3}
-              className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-lg px-3 py-2 text-sm transition-colors"
+              className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-lg px-3 py-2 text-sm transition-colors"
             />
           </section>
 
           {/* Lignes */}
-          <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
+          <section className="spanc-card p-5 space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="font-bold text-[#0e2a52]">Prestations</h2>
-              <button onClick={addLine} className="text-sm font-semibold text-blue-700 hover:text-blue-900">+ Ajouter une ligne</button>
+              <h2 className="font-bold text-white">Prestations</h2>
+              <button onClick={addLine} className="text-sm font-semibold text-orange-200 hover:text-orange-100">+ Ajouter une ligne</button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                  <tr className="text-left text-xs uppercase tracking-wide text-white/60 border-b border-white/10">
                     <th className="py-2 pr-2">Section</th>
                     <th className="py-2 pr-2">Désignation</th>
                     <th className="py-2 pr-2 w-16">Qté</th>
@@ -230,25 +230,25 @@ export default function DevisPage() {
                 </thead>
                 <tbody>
                   {devis.lignes.map((l, i) => (
-                    <tr key={i} className="border-b border-slate-100 align-top">
+                    <tr key={i} className="border-b border-white/5 align-top">
                       <td className="py-1 pr-2">
                         <input
                           value={l.section || ''}
                           onChange={e => updateLine(i, { section: e.target.value })}
-                          className="w-full border border-slate-200 rounded px-2 py-1 text-xs"
+                          className="w-full border border-white/10 rounded px-2 py-1 text-xs"
                         />
                       </td>
                       <td className="py-1 pr-2">
                         <input
                           value={l.designation}
                           onChange={e => updateLine(i, { designation: e.target.value })}
-                          className="w-full border border-slate-200 rounded px-2 py-1 mb-1"
+                          className="w-full border border-white/10 rounded px-2 py-1 mb-1"
                         />
                         <input
                           value={l.description || ''}
                           onChange={e => updateLine(i, { description: e.target.value })}
                           placeholder="précisions (optionnel)"
-                          className="w-full border border-slate-200 rounded px-2 py-1 text-xs text-slate-500"
+                          className="w-full border border-white/10 rounded px-2 py-1 text-xs text-white/60"
                         />
                       </td>
                       <td className="py-1 pr-2">
@@ -256,14 +256,14 @@ export default function DevisPage() {
                           type="number" step="0.01" min="0"
                           value={l.qte}
                           onChange={e => updateLine(i, { qte: Number(e.target.value) })}
-                          className="w-full border border-slate-200 rounded px-2 py-1"
+                          className="w-full border border-white/10 rounded px-2 py-1"
                         />
                       </td>
                       <td className="py-1 pr-2">
                         <input
                           value={l.unite || ''}
                           onChange={e => updateLine(i, { unite: e.target.value })}
-                          className="w-full border border-slate-200 rounded px-2 py-1"
+                          className="w-full border border-white/10 rounded px-2 py-1"
                         />
                       </td>
                       <td className="py-1 pr-2">
@@ -271,10 +271,10 @@ export default function DevisPage() {
                           type="number" step="0.01" min="0"
                           value={l.pu_ht}
                           onChange={e => updateLine(i, { pu_ht: Number(e.target.value) })}
-                          className="w-full border border-slate-200 rounded px-2 py-1 text-right"
+                          className="w-full border border-white/10 rounded px-2 py-1 text-right"
                         />
                       </td>
-                      <td className="py-1 pr-2 text-right font-semibold text-[#0e2a52]">
+                      <td className="py-1 pr-2 text-right font-semibold text-white">
                         {(l.qte * l.pu_ht).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                       </td>
                       <td className="py-1">
@@ -292,18 +292,18 @@ export default function DevisPage() {
 
             <div className="flex justify-end mt-2">
               <div className="w-full sm:w-80 space-y-1 text-sm">
-                <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-600">Total HT</span>
+                <div className="flex justify-between py-1 border-b border-white/5">
+                  <span className="text-white/70">Total HT</span>
                   <span className="font-semibold">{total.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
                 </div>
-                <div className="flex justify-between py-1 border-b border-slate-100 items-center">
-                  <span className="text-slate-600">TVA</span>
+                <div className="flex justify-between py-1 border-b border-white/5 items-center">
+                  <span className="text-white/70">TVA</span>
                   <div className="flex items-center gap-2">
                     <input
                       type="number" min="0" max="30" step="0.1"
                       value={tvaTaux}
                       onChange={e => setDevis({ ...devis, tva_taux: Number(e.target.value) })}
-                      className="w-16 border border-slate-200 rounded px-2 py-1 text-right"
+                      className="w-16 border border-white/10 rounded px-2 py-1 text-right"
                     />
                     <span>%</span>
                     <span className="font-semibold ml-2">{tva.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
@@ -313,7 +313,7 @@ export default function DevisPage() {
                   <span className="font-bold">Montant TTC</span>
                   <span className="font-bold">{ttc.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
                 </div>
-                <label className="flex items-center gap-2 text-xs text-slate-500 mt-2">
+                <label className="flex items-center gap-2 text-xs text-white/60 mt-2">
                   <input
                     type="checkbox"
                     checked={!!devis.tva_reduite_attestation}
@@ -326,8 +326,8 @@ export default function DevisPage() {
           </section>
 
           {/* Conditions */}
-          <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
-            <h2 className="font-bold text-[#0e2a52]">Conditions d&apos;exécution</h2>
+          <section className="spanc-card p-5 space-y-3">
+            <h2 className="font-bold text-white">Conditions d&apos;exécution</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Validité" value={devis.conditions?.validite || ''} onChange={v => setDevis({ ...devis, conditions: { ...(devis.conditions || {}), validite: v } })} />
               <Field label="Délai d'exécution" value={devis.conditions?.delai_execution || ''} onChange={v => setDevis({ ...devis, conditions: { ...(devis.conditions || {}), delai_execution: v } })} />
@@ -340,16 +340,16 @@ export default function DevisPage() {
           </section>
 
           {/* Modalités */}
-          <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
-            <h2 className="font-bold text-[#0e2a52]">Modalités de règlement</h2>
+          <section className="spanc-card p-5 space-y-3">
+            <h2 className="font-bold text-white">Modalités de règlement</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="block text-sm">
-                <span className="text-xs uppercase tracking-wide text-slate-500">Acompte (%)</span>
+                <span className="text-xs uppercase tracking-wide text-white/60">Acompte (%)</span>
                 <input
                   type="number" min="0" max="100" step="1"
                   value={devis.modalites?.acompte_pct ?? 30}
                   onChange={e => setDevis({ ...devis, modalites: { ...(devis.modalites || {}), acompte_pct: Number(e.target.value) } })}
-                  className="w-full border border-slate-200 rounded px-2 py-1 mt-1"
+                  className="w-full border border-white/10 rounded px-2 py-1 mt-1"
                 />
               </label>
               <Field
@@ -370,8 +370,9 @@ export default function DevisPage() {
 
   /* ========= CAPTURE ========= */
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200">
+    <div className="relative min-h-screen overflow-hidden bg-[#0a1a3d] text-white">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#0a1a3d] via-[#0e2a52] to-[#071026]" />
+      <header className="relative z-20 bg-[#0e2a52]/90 backdrop-blur-xl ring-1 ring-white/10 border-b border-white/10">
         <div className="max-w-3xl mx-auto px-4 py-3">
           <AppTabs />
         </div>
@@ -379,20 +380,20 @@ export default function DevisPage() {
 
       <main className="max-w-3xl mx-auto px-4 py-5 space-y-4">
         <div className="text-center">
-          <h1 className="text-2xl font-black text-[#0e2a52]">Nouveau devis</h1>
-          <p className="text-sm text-slate-500 mt-1">Dicte les travaux, les quantités et les prix — on s&apos;occupe du reste.</p>
+          <h1 className="text-2xl font-black text-white">Nouveau devis</h1>
+          <p className="text-sm text-white/60 mt-1">Dicte les travaux, les quantités et les prix — on s&apos;occupe du reste.</p>
         </div>
 
         {/* Dictée */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-6 space-y-4">
+        <div className="spanc-card p-5 sm:p-6 space-y-4">
           <div>
-            <h2 className="text-xl font-black text-[#0e2a52]">Raconte le chantier</h2>
-            <p className="text-sm text-slate-500 mt-1">
+            <h2 className="text-xl font-black text-white">Raconte le chantier</h2>
+            <p className="text-sm text-white/60 mt-1">
               Dicte ou tape. Exemple : « Devis pour M. Dupont à Solliès-Pont — réhabilitation ANC : étude de sol 480 €, fosse toutes eaux 3 m³ 1 850 €, filtre à sable drainé 25 m² 4 200 €, vidange ancienne fosse 280 €, terrassement 8 m³ à 95 € le m³, TVA 10 %. »
             </p>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+          <div className="bg-blue-500/10 border border-blue-400/30 rounded-xl p-3">
             <VoiceRecorder onTranscription={t => setTranscription(prev => prev ? prev + ' ' + t : t)} />
           </div>
 
@@ -401,10 +402,10 @@ export default function DevisPage() {
             onChange={e => setTranscription(e.target.value)}
             rows={6}
             placeholder="Dicte les prestations avec leurs quantités et prix…"
-            className="w-full border-2 border-slate-200 focus:border-blue-500 outline-none rounded-xl px-4 py-3 text-base transition-colors"
+            className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-4 py-3 text-base transition-colors"
           />
 
-          <div className="flex justify-between text-xs text-slate-400">
+          <div className="flex justify-between text-xs text-white/50">
             <span>{transcription.length} car.</span>
             <span>{transcription.length < 50 ? 'Ajoute plus de détails' : '✓ OK'}</span>
           </div>
@@ -413,7 +414,7 @@ export default function DevisPage() {
             <button
               onClick={handleExtractClient}
               disabled={step === 'extracting'}
-              className="text-sm text-blue-700 hover:text-blue-900 font-semibold disabled:opacity-50"
+              className="text-sm text-orange-200 hover:text-orange-100 font-semibold disabled:opacity-50"
             >
               {step === 'extracting' ? 'Extraction…' : '↳ Pré-remplir les champs client depuis la dictée'}
             </button>
@@ -421,8 +422,8 @@ export default function DevisPage() {
         </div>
 
         {/* Client */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-6 space-y-3">
-          <h2 className="text-xl font-black text-[#0e2a52]">Client</h2>
+        <div className="spanc-card p-5 sm:p-6 space-y-3">
+          <h2 className="text-xl font-black text-white">Client</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Nom du client" value={clientNom} onChange={setClientNom} placeholder="M. Dupont / SAS Martin…" />
             <Field label="Adresse" value={clientAdresse} onChange={setClientAdresse} />
@@ -430,12 +431,12 @@ export default function DevisPage() {
             <Field label="Ville" value={clientVille} onChange={setClientVille} />
             <Field label="Adresse du chantier" value={adresseChantier} onChange={setAdresseChantier} placeholder="idem / autre" />
             <label className="block text-sm">
-              <span className="text-xs uppercase tracking-wide text-slate-500">Date du devis</span>
+              <span className="text-xs uppercase tracking-wide text-white/60">Date du devis</span>
               <input
                 type="date"
                 value={dateDevis}
                 onChange={e => setDateDevis(e.target.value)}
-                className="w-full border border-slate-200 rounded px-2 py-1.5 mt-1"
+                className="w-full border border-white/10 rounded px-2 py-1.5 mt-1"
               />
             </label>
             <Field
@@ -448,7 +449,7 @@ export default function DevisPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
+          <div className="text-red-300 bg-red-500/10 ring-1 ring-red-400/30 rounded-xl px-4 py-3 text-sm rounded-xl px-4 py-3 text-sm">
             {error}
           </div>
         )}
@@ -472,12 +473,12 @@ function Field({
 }) {
   return (
     <label className="block text-sm">
-      <span className="text-xs uppercase tracking-wide text-slate-500">{label}</span>
+      <span className="text-xs uppercase tracking-wide text-white/60">{label}</span>
       <input
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full border border-slate-200 rounded px-2 py-1.5 mt-1"
+        className="w-full border border-white/10 rounded px-2 py-1.5 mt-1"
       />
     </label>
   )

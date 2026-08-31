@@ -2,6 +2,7 @@
 import { signIn } from "next-auth/react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -27,33 +28,34 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-center mb-6 text-blue-800">
-          SPANC — Interventions
-        </h1>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0a1a3d] px-4">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#0a1a3d] via-[#0e2a52] to-[#071026]" />
+      <div className="relative z-10 w-full max-w-sm">
+        <div className="mb-6 text-center">
+          <Link href="/">
+            <img src="/logo.png" alt="SPANC SENS" className="mx-auto mb-3 h-16 w-auto" />
+          </Link>
+          <h1 className="text-xl font-black uppercase tracking-wide text-white">SPANC — Interventions</h1>
+          <p className="mt-1 text-sm text-white/60">Espace technicien</p>
+        </div>
+        <form onSubmit={handleSubmit} className="spanc-card space-y-4">
           <input
             name="username"
             type="text"
             placeholder="Identifiant"
             required
-            className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="spanc-input"
           />
           <input
             name="password"
             type="password"
             placeholder="Mot de passe"
             required
-            className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="spanc-input"
           />
-          {error && <p className="text-red-600 text-sm">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-700 text-white py-2 rounded-lg hover:bg-blue-800 disabled:opacity-50"
-          >
-            {loading ? 'Connexion...' : 'Se connecter'}
+          {error && <p className="text-sm text-red-300">{error}</p>}
+          <button type="submit" disabled={loading} className="spanc-btn-primary w-full">
+            {loading ? 'Connexion…' : 'Se connecter'}
           </button>
         </form>
       </div>

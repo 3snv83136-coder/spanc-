@@ -4,23 +4,23 @@ import { usePathname } from "next/navigation"
 
 const TABS = [
   { href: '/nouveau', label: 'Rapport d\'intervention', icon: '📄' },
-  { href: '/devis',   label: 'Devis',                  icon: '🧾' },
+  { href: '/devis', label: 'Devis', icon: '🧾' },
 ]
 
 export default function AppTabs() {
   const pathname = usePathname() || ''
   return (
-    <div className="flex gap-1 p-1 bg-slate-100 rounded-xl max-w-fit mx-auto mb-3">
+    <div className="mx-auto mb-3 flex max-w-fit gap-1 rounded-xl bg-white/5 p-1 ring-1 ring-white/10">
       {TABS.map(t => {
         const active = pathname.startsWith(t.href)
         return (
           <Link
             key={t.href}
             href={t.href}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
               active
-                ? 'bg-white text-[#0e2a52] shadow-sm'
-                : 'text-slate-500 hover:text-slate-800'
+                ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30'
+                : 'text-white/60 hover:text-white'
             }`}
           >
             <span className="mr-1">{t.icon}</span>{t.label}

@@ -117,25 +117,25 @@ export const AVIS_LABELS: Record<AvisConformite, { label: string; short: string;
     label: 'Conforme — aucune action requise',
     short: 'Conforme',
     icon: '✅',
-    tone: 'border-emerald-500 bg-emerald-50 text-emerald-900',
+    tone: 'border-emerald-400/50 bg-emerald-500/10 text-emerald-200',
   },
   conforme_recommandations: {
     label: 'Conforme avec recommandations',
     short: 'Conforme + recommandations',
     icon: '🟡',
-    tone: 'border-amber-500 bg-amber-50 text-amber-900',
+    tone: 'border-amber-400/50 bg-amber-500/10 text-amber-200',
   },
   non_conforme: {
     label: 'Non conforme — travaux obligatoires (délai 4 ans)',
     short: 'Non conforme',
     icon: '❌',
-    tone: 'border-red-500 bg-red-50 text-red-900',
+    tone: 'border-red-400/50 bg-red-500/10 text-red-200',
   },
   non_conforme_risque_sanitaire: {
     label: 'Non conforme — risque sanitaire (urgence)',
     short: 'Risque sanitaire',
     icon: '🚨',
-    tone: 'border-red-700 bg-red-100 text-red-950',
+    tone: 'border-red-500/60 bg-red-600/15 text-red-100',
   },
 }
 
@@ -180,13 +180,24 @@ export function genererNumeroRapport(date: Date = new Date()): string {
 }
 
 // Liste des points de contrôle standards (utilisés en checklist + rapport)
+// Points 1-8 : contrôle courant de bon fonctionnement.
+// Points 9-14 : critères de classement de l'Annexe II de l'arrêté du 27 avril 2012
+// (défaut de sécurité sanitaire / défaut de structure / distance puits / installation
+// incomplète ou sous-dimensionnée / zone à enjeu) — ce sont eux qui déclenchent un avis
+// "non conforme" ou "danger pour la santé des personnes" dans le tableau de classement officiel.
 export const POINTS_CONTROLES_STANDARDS: { key: string; label: string }[] = [
   { key: 'regard_accessible', label: 'Regard accessible au niveau du sol' },
   { key: 'ventilation_primaire', label: 'Ventilation primaire présente et fonctionnelle' },
   { key: 'ventilation_secondaire', label: 'Ventilation secondaire présente' },
   { key: 'vidange_recente', label: 'Dernière vidange < 4 ans (facture fournie)' },
   { key: 'absence_ecoulement', label: "Absence d'écoulement superficiel" },
-  { key: 'absence_odeurs', label: "Absence d'odeurs anormales" },
+  { key: 'absence_odeurs', label: "Absence d'odeurs anormales constatées ou signalées" },
   { key: 'absence_retour', label: 'Absence de retour en surface' },
-  { key: 'distance_captages', label: 'Distance captages > 35 m respectée' },
+  { key: 'distance_captages', label: 'Distance puits privé > 35 m (amont hydraulique) respectée' },
+  { key: 'absence_contact_eaux_usees', label: 'Absence de contact possible avec les eaux usées (sur ou hors parcelle)' },
+  { key: 'securite_structure_ouvrages', label: 'Ouvrages fermés et sécurisés (couvercles, absence de risque électrique)' },
+  { key: 'installation_complete', label: "Installation complète (prétraitement + traitement, pas de rejet d'eaux brutes)" },
+  { key: 'dimensionnement_suffisant', label: 'Dimensionnement suffisant (capacité ≥ moitié du flux de pollution à traiter)' },
+  { key: 'absence_dysfonctionnement_majeur', label: 'Absence de dysfonctionnement majeur (prétraitement dégradé, drains engorgés, micro-station défaillante)' },
+  { key: 'hors_zone_enjeu', label: "Hors zone à enjeu sanitaire (captage AEP, baignade) ou environnemental (zone conchylicole)" },
 ]

@@ -216,6 +216,37 @@ export default function Home() {
                   iconBg="from-orange-400 to-orange-600"
                   iconShadow="rgba(249,115,22,0.6)"
                 />
+
+                <ModuleCard
+                  href="/sispea"
+                  title="Export SISPEA"
+                  subtitle="RPQS ANC · Fichier CSV pour import"
+                  icon={
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 sm:h-7 sm:w-7 text-white">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <path d="M14 2v6h6" />
+                      <path d="M12 18v-6" />
+                      <path d="m9 15 3 3 3-3" />
+                    </svg>
+                  }
+                  iconBg="from-violet-400 to-violet-600"
+                  iconShadow="rgba(139,92,246,0.55)"
+                />
+
+                <ModuleCard
+                  href="/cartographie"
+                  title="Cartographie intégrée"
+                  subtitle="Schéma ANC sur fond cadastral"
+                  icon={
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 sm:h-7 sm:w-7 text-white">
+                      <path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z" />
+                      <path d="M9 3v15" />
+                      <path d="M15 6v15" />
+                    </svg>
+                  }
+                  iconBg="from-cyan-400 to-cyan-600"
+                  iconShadow="rgba(6,182,212,0.55)"
+                />
               </div>
             </>
           )}
