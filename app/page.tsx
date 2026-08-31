@@ -161,13 +161,18 @@ export default function Home() {
 
           {hydrated && agent && (
             <>
-              <div className="mb-3 flex items-center justify-between text-xs">
+              <div className="mb-3 flex items-center justify-between text-xs gap-2 flex-wrap">
                 <span className="text-white/70">
                   Connecté · <span className="font-bold text-orange-300">{agent}</span>
                 </span>
-                <button onClick={logout} className="text-white/60 hover:text-white underline underline-offset-2">
-                  Déconnexion
-                </button>
+                <div className="flex items-center gap-3">
+                  <Link href="/telecharger" className="text-cyan-300 hover:text-cyan-200 font-semibold underline underline-offset-2">
+                    💻 Installer
+                  </Link>
+                  <button onClick={logout} className="text-white/60 hover:text-white underline underline-offset-2">
+                    Déconnexion
+                  </button>
+                </div>
               </div>
 
               <div className="flex flex-col gap-3">

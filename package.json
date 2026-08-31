@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "icons:pwa": "node scripts/generate-pwa-icons.mjs",
+    "desktop:install": "cd desktop && npm install",
+    "desktop:start": "cd desktop && npm start",
+    "desktop:build:mac": "cd desktop && npm run build:mac",
+    "desktop:build:win": "cd desktop && npm run build:win"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.86.1",

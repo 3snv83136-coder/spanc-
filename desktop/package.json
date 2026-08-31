@@ -1,0 +1,40 @@
+{
+  "name": "spanc-sens-desktop",
+  "version": "1.0.0",
+  "description": "Application bureau SPANC Sens (Mac / Windows)",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "NODE_ENV=development electron .",
+    "build:mac": "electron-builder --mac dmg",
+    "build:win": "electron-builder --win nsis",
+    "build:all": "electron-builder --mac dmg --win nsis"
+  },
+  "build": {
+    "appId": "fr.sens.spanc",
+    "productName": "SPANC Sens",
+    "copyright": "Communauté d'Agglomération du Grand Sénonais",
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.business",
+      "target": ["dmg"],
+      "icon": "../public/icons/icon-512.png"
+    },
+    "win": {
+      "target": ["nsis"],
+      "icon": "../public/icons/icon-512.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerLanguages": ["fr_FR"]
+    }
+  },
+  "devDependencies": {
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8"
+  }
+}

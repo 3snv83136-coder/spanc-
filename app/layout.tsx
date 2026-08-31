@@ -7,8 +7,17 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "SPANC — Interventions",
-  description: "Back-office techniciens SPANC",
+  description: "Logiciel terrain SPANC : contrôles, rapports, cartographie et attestations",
   robots: "noindex, nofollow",
+  applicationName: "SPANC Sens",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "SPANC",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 }
 
 export const viewport: Viewport = {
