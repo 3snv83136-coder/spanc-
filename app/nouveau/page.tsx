@@ -336,7 +336,7 @@ export default function NouveauControleSPANCPage() {
       </nav>
 
       {/* Stepper */}
-      <div className="bg-white border-b border-white/10 shadow-sm sticky top-[52px] sm:top-[60px] z-20">
+      <div className="spanc-subnav">
         <div className="max-w-3xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             {STEPPER.map((s, i) => {
@@ -347,16 +347,16 @@ export default function NouveauControleSPANCPage() {
                   <div className="flex flex-col items-center">
                     <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-bold transition-all ${
                       done ? 'bg-emerald-500 text-white shadow-md' :
-                      active ? 'bg-[#0e2a52] text-white shadow-lg ring-4 ring-blue-100' :
-                      'bg-white/5 text-white/50 border-2 border-white/10'
+                      active ? 'bg-[#1a4a8a] text-white shadow-lg ring-4 ring-orange-400/30' :
+                      'bg-white/10 text-white/70 border-2 border-white/20'
                     }`}>{done ? '✓' : s.icon}</div>
                     <span className={`text-[10px] sm:text-xs mt-1 font-semibold text-center leading-tight ${
-                      active ? 'text-white' : done ? 'text-emerald-300' : 'text-white/50'
+                      active ? 'text-white' : done ? 'text-emerald-300' : 'text-white/70'
                     }`}>{s.label}</span>
                   </div>
                   {i < STEPPER.length - 1 && (
                     <div className={`flex-1 h-0.5 mx-2 sm:mx-3 rounded-full transition-all ${
-                      i < idx ? 'bg-emerald-400' : 'bg-slate-200'
+                      i < idx ? 'bg-emerald-400' : 'bg-white/25'
                     }`} />
                   )}
                 </div>
@@ -374,7 +374,7 @@ export default function NouveauControleSPANCPage() {
             <section className="spanc-card p-5 space-y-4">
               <div>
                 <h2 className="text-xl font-black text-white">Type de contrôle</h2>
-                <p className="text-sm text-white/60 mt-1">Choisis la mission du jour.</p>
+                <p className="spanc-muted text-sm mt-1">Choisis la mission du jour.</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {(Object.keys(TYPE_CONTROLE_LABELS) as TypeControle[]).map(t => {
@@ -383,14 +383,14 @@ export default function NouveauControleSPANCPage() {
                     <button key={t} type="button" onClick={() => setTypeControle(t)}
                       className={`p-3 rounded-xl border-2 text-left transition-all ${
                         typeControle === t
-                          ? 'border-orange-400 bg-orange-500/10 ring-1 ring-orange-400/30 shadow-sm'
-                          : 'border-white/10 bg-white hover:border-slate-300'
+                          ? 'spanc-option-active shadow-sm'
+                          : 'spanc-option'
                       }`}>
                       <div className="flex items-start gap-2">
                         <span className="text-2xl leading-none">{meta.icon}</span>
                         <div>
-                          <div className={`font-bold text-sm ${typeControle === t ? 'text-white' : 'text-white'}`}>{meta.label}</div>
-                          <div className="text-[11px] text-white/60 mt-0.5">{meta.desc}</div>
+                          <div className="font-bold text-sm text-white">{meta.label}</div>
+                          <div className="spanc-option-desc mt-0.5">{meta.desc}</div>
                         </div>
                       </div>
                     </button>
@@ -409,7 +409,7 @@ export default function NouveauControleSPANCPage() {
                   <Field label="Adresse" value={adresse} onChange={setAdresse} placeholder="ex: 5 rue des Champs" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1">Commune *</label>
+                  <label className="spanc-label">Commune *</label>
                   <CommuneSensCombobox value={commune} onChange={setCommune} onSelect={selectCommune} />
                 </div>
                 <Field label="Code postal" value={codePostal} onChange={setCodePostal} placeholder="89100" />
@@ -424,7 +424,7 @@ export default function NouveauControleSPANCPage() {
                   <div className="sm:col-span-2">
                     <Link
                       href={`/cartographie?adresse=${encodeURIComponent(adresse)}&cp=${encodeURIComponent(codePostal)}&commune=${encodeURIComponent(commune)}&section=${encodeURIComponent(sectionCadastrale)}&numero=${encodeURIComponent(numeroParcelle)}`}
-                      className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-700 bg-cyan-50 border border-cyan-200 rounded-xl px-4 py-2.5 hover:bg-cyan-100"
+                      className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-200 bg-cyan-500/15 border border-cyan-400/40 rounded-xl px-4 py-2.5 hover:bg-cyan-500/25"
                     >
                       🗺️ Éditer le plan d&apos;installation sur fond cadastral
                     </Link>
@@ -434,8 +434,8 @@ export default function NouveauControleSPANCPage() {
                 <Field label="Téléphone" value={telephone} onChange={setTelephone} placeholder="06 …" />
                 <NumberField label="Pièces principales" value={nbPieces} onChange={setNbPieces} placeholder="4" />
                 <div>
-                  <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1">Date du contrôle</label>
-                  <input type="date" value={dateControle} onChange={e => setDateControle(e.target.value)} className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-3 py-2.5 text-base" />
+                  <label className="spanc-label">Date du contrôle</label>
+                  <input type="date" value={dateControle} onChange={e => setDateControle(e.target.value)} className="spanc-input" />
                 </div>
               </div>
             </section>
@@ -446,8 +446,8 @@ export default function NouveauControleSPANCPage() {
                 <h2 className="text-xl font-black text-white">Filière ANC</h2>
 
                 <div>
-                  <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1">Prétraitement</label>
-                  <select value={typePretraitement} onChange={e => setTypePretraitement(e.target.value as TypePretraitement | '')} className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-3 py-2.5 text-base bg-white">
+                  <label className="spanc-label">Prétraitement</label>
+                  <select value={typePretraitement} onChange={e => setTypePretraitement(e.target.value as TypePretraitement | '')} className="spanc-select">
                     <option value="">— Choisir —</option>
                     {(Object.keys(PRETRAITEMENT_LABELS) as TypePretraitement[]).map(t => (
                       <option key={t} value={t}>{PRETRAITEMENT_LABELS[t]}</option>
@@ -461,8 +461,8 @@ export default function NouveauControleSPANCPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1">Traitement</label>
-                  <select value={typeTraitement} onChange={e => setTypeTraitement(e.target.value as TypeTraitement | '')} className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-3 py-2.5 text-base bg-white">
+                  <label className="spanc-label">Traitement</label>
+                  <select value={typeTraitement} onChange={e => setTypeTraitement(e.target.value as TypeTraitement | '')} className="spanc-select">
                     <option value="">— Choisir —</option>
                     {(Object.keys(TRAITEMENT_LABELS) as TypeTraitement[]).map(t => (
                       <option key={t} value={t}>{TRAITEMENT_LABELS[t]}</option>
@@ -471,8 +471,8 @@ export default function NouveauControleSPANCPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1">Rejet / exutoire</label>
-                  <select value={typeRejet} onChange={e => setTypeRejet(e.target.value as TypeRejet | '')} className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-3 py-2.5 text-base bg-white">
+                  <label className="spanc-label">Rejet / exutoire</label>
+                  <select value={typeRejet} onChange={e => setTypeRejet(e.target.value as TypeRejet | '')} className="spanc-select">
                     <option value="">— Choisir —</option>
                     {(Object.keys(REJET_LABELS) as TypeRejet[]).map(t => (
                       <option key={t} value={t}>{REJET_LABELS[t]}</option>
@@ -485,8 +485,8 @@ export default function NouveauControleSPANCPage() {
                 {/* Slider niveau boues */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-bold text-white/60 uppercase tracking-wider">Niveau de boues</label>
-                    <span className={`text-sm font-bold ${niveauBoues <= 30 ? 'text-emerald-300' : niveauBoues <= 50 ? 'text-amber-300' : 'text-red-600'}`}>
+                    <label className="spanc-label">Niveau de boues</label>
+                    <span className={`text-sm font-bold ${niveauBoues <= 30 ? 'text-emerald-300' : niveauBoues <= 50 ? 'text-amber-300' : 'text-red-300'}`}>
                       {niveauBoues}%{niveauBoues > 50 ? ' · vidange recommandée' : ''}
                     </span>
                   </div>
@@ -507,16 +507,14 @@ export default function NouveauControleSPANCPage() {
                 <p className="text-xs text-white/60">Coche les points conformes.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
                   {POINTS_CONTROLES_STANDARDS.map(p => (
-                    <label key={p.key} className={`flex items-start gap-2 p-2.5 rounded-lg border-2 cursor-pointer transition ${
-                      checkboxes[p.key] ? 'border-emerald-400 bg-emerald-50' : 'border-white/10 bg-white hover:border-slate-300'
-                    }`}>
+                    <label key={p.key} className={`spanc-check ${checkboxes[p.key] ? 'spanc-check-active' : ''}`}>
                       <input
                         type="checkbox"
                         checked={!!checkboxes[p.key]}
                         onChange={e => setCheckboxes(prev => ({ ...prev, [p.key]: e.target.checked }))}
-                        className="mt-0.5 h-4 w-4 accent-emerald-600"
+                        className="mt-0.5 h-4 w-4 accent-emerald-400"
                       />
-                      <span className={`text-sm ${checkboxes[p.key] ? 'text-emerald-900 font-semibold' : 'text-white/80'}`}>{p.label}</span>
+                      <span className={`text-sm ${checkboxes[p.key] ? 'text-emerald-200 font-semibold' : 'text-white/90'}`}>{p.label}</span>
                     </label>
                   ))}
                 </div>
@@ -534,7 +532,7 @@ export default function NouveauControleSPANCPage() {
                   return (
                     <button key={a} type="button" onClick={() => setAvisAgent(a)}
                       className={`p-3 rounded-xl border-2 text-left transition-all ${
-                        active ? `${meta.tone} shadow-md` : 'border-white/10 bg-white text-white/70 hover:border-slate-300'
+                        active ? `${meta.tone} shadow-md` : 'spanc-option text-white/90'
                       }`}>
                       <div className="flex items-start gap-2">
                         <span className="text-xl">{meta.icon}</span>
@@ -685,15 +683,15 @@ export default function NouveauControleSPANCPage() {
 
       {/* Bottom action bar — étape saisie */}
       {step === 'saisie' && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-white/10 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] p-3 z-30">
+        <div className="spanc-bottom-bar">
           <div className="max-w-3xl mx-auto flex gap-3">
-            <Link href="/" className="flex-1 bg-white/5 text-white/70 py-3.5 rounded-xl font-bold text-sm text-center active:scale-95 transition-all">
+            <Link href="/" className="flex-1 spanc-btn-secondary py-3.5 text-sm text-center active:scale-95 transition-all">
               Annuler
             </Link>
             <button
               onClick={handleGenerate}
               disabled={dictee.trim().length < 20 || !commune || !technicien}
-              className="flex-[2] bg-[#0e2a52] text-white py-3.5 rounded-xl font-bold text-sm shadow-lg active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-[2] spanc-btn-navy py-3.5 text-sm shadow-lg active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               🚀 Générer le rapport
             </button>
@@ -730,7 +728,7 @@ function NumberField({ label, value, onChange, placeholder }: {
 }) {
   return (
     <div>
-      <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1">{label}</label>
+      <label className="spanc-label">{label}</label>
       <input
         type="number"
         value={value}

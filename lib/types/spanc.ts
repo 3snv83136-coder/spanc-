@@ -117,25 +117,25 @@ export const AVIS_LABELS: Record<AvisConformite, { label: string; short: string;
     label: 'Conforme — aucune action requise',
     short: 'Conforme',
     icon: '✅',
-    tone: 'border-emerald-400/50 bg-emerald-500/10 text-emerald-200',
+    tone: 'border-emerald-400/70 bg-emerald-500/20 text-emerald-100',
   },
   conforme_recommandations: {
     label: 'Conforme avec recommandations',
     short: 'Conforme + recommandations',
     icon: '🟡',
-    tone: 'border-amber-400/50 bg-amber-500/10 text-amber-200',
+    tone: 'border-amber-400/70 bg-amber-500/20 text-amber-100',
   },
   non_conforme: {
     label: 'Non conforme — travaux obligatoires (délai 4 ans)',
     short: 'Non conforme',
     icon: '❌',
-    tone: 'border-red-400/50 bg-red-500/10 text-red-200',
+    tone: 'border-red-400/70 bg-red-500/20 text-red-100',
   },
   non_conforme_risque_sanitaire: {
     label: 'Non conforme — risque sanitaire (urgence)',
     short: 'Risque sanitaire',
     icon: '🚨',
-    tone: 'border-red-500/60 bg-red-600/15 text-red-100',
+    tone: 'border-red-500/70 bg-red-600/25 text-white',
   },
 }
 

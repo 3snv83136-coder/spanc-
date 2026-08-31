@@ -29,15 +29,44 @@ input, select, textarea {
 
 @layer components {
   .spanc-card {
-    @apply rounded-2xl bg-gradient-to-br from-[#0e2a52]/85 via-[#102a43]/85 to-[#071026]/90 p-5 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] ring-1 ring-white/10 backdrop-blur-xl;
+    @apply rounded-2xl bg-gradient-to-br from-[#0e2a52]/90 via-[#102a43]/90 to-[#071026]/95 p-5 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] ring-1 ring-white/15 backdrop-blur-xl;
   }
 
   .spanc-input {
-    @apply w-full rounded-xl bg-white/5 px-3 py-2.5 text-white outline-none ring-1 ring-white/15 transition-colors placeholder:text-white/30 focus:ring-orange-400;
+    @apply w-full rounded-xl bg-[#152a4a] px-3 py-2.5 text-white outline-none ring-1 ring-white/25 transition-colors placeholder:text-white/55 focus:ring-2 focus:ring-orange-400;
+  }
+
+  .spanc-select {
+    @apply w-full rounded-xl bg-[#152a4a] px-3 py-2.5 text-white outline-none ring-1 ring-white/25 transition-colors focus:ring-2 focus:ring-orange-400;
+    color-scheme: dark;
   }
 
   .spanc-label {
-    @apply mb-1 block text-[10px] font-bold uppercase tracking-[0.25em] text-orange-300/80 sm:text-[11px];
+    @apply mb-1 block text-[10px] font-bold uppercase tracking-[0.2em] text-amber-200 sm:text-[11px];
+  }
+
+  .spanc-muted {
+    @apply text-white/75;
+  }
+
+  .spanc-option {
+    @apply rounded-xl border-2 border-white/20 bg-white/[0.08] p-3 text-left text-white transition-all hover:border-white/35 hover:bg-white/[0.12];
+  }
+
+  .spanc-option-active {
+    @apply border-orange-400 bg-orange-500/15 ring-1 ring-orange-400/50 shadow-sm;
+  }
+
+  .spanc-option-desc {
+    @apply text-[11px] text-white/75;
+  }
+
+  .spanc-check {
+    @apply flex cursor-pointer items-start gap-2 rounded-lg border-2 border-white/20 bg-white/[0.08] p-2.5 transition hover:border-white/35;
+  }
+
+  .spanc-check-active {
+    @apply border-emerald-400/70 bg-emerald-500/15;
   }
 
   .spanc-title {
@@ -45,11 +74,23 @@ input, select, textarea {
   }
 
   .spanc-btn-primary {
-    @apply rounded-xl bg-orange-500 px-5 py-3 font-bold text-white shadow-lg shadow-orange-500/20 transition-colors hover:bg-orange-600 disabled:bg-white/10 disabled:text-white/40;
+    @apply rounded-xl bg-orange-500 px-5 py-3 font-bold text-white shadow-lg shadow-orange-500/20 transition-colors hover:bg-orange-600 disabled:bg-white/10 disabled:text-white/50;
   }
 
   .spanc-btn-secondary {
-    @apply rounded-xl bg-white/5 px-5 py-3 font-bold text-white ring-1 ring-white/15 transition-colors hover:ring-orange-400;
+    @apply rounded-xl bg-white/10 px-5 py-3 font-bold text-white ring-1 ring-white/25 transition-colors hover:bg-white/15 hover:ring-orange-400;
+  }
+
+  .spanc-btn-navy {
+    @apply rounded-xl bg-[#1a3a6b] px-5 py-3 font-bold text-white ring-1 ring-white/25 transition-colors hover:bg-[#0e2a52];
+  }
+
+  .spanc-subnav {
+    @apply sticky top-[52px] z-20 border-b border-white/15 bg-[#0e2a52]/95 shadow-sm backdrop-blur-xl sm:top-[60px];
+  }
+
+  .spanc-bottom-bar {
+    @apply fixed bottom-0 left-0 right-0 z-30 border-t border-white/15 bg-[#0e2a52]/98 p-3 shadow-[0_-4px_20px_rgba(0,0,0,0.45)] backdrop-blur-xl;
   }
 }
 

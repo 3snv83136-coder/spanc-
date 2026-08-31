@@ -265,7 +265,7 @@ export default function AttestationPage() {
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#0a1a3d] via-[#0e2a52] to-[#071026]" />\n        <div className="spanc-card p-8 max-w-md w-full text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-400/30 border-t-[#0f2e5c] mb-4" />
           <h2 className="text-xl font-black text-white">Rédaction de l&apos;attestation…</h2>
-          <p className="text-sm text-white/60 mt-2">L&apos;IA structure objet, méthode, relevés et conclusion.</p>
+          <p className="text-sm text-white/75 mt-2">L&apos;IA structure objet, méthode, relevés et conclusion.</p>
         </div>
       </div>
     )
@@ -280,7 +280,7 @@ export default function AttestationPage() {
       <div className="relative min-h-screen overflow-hidden bg-[#0a1a3d] text-white">
         <header className="bg-[#0e2a52]/90 backdrop-blur-xl ring-1 ring-white/10 border-b border-white/10 sticky top-0 z-10">
           <div className="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
-            <Link href="/" className="text-sm text-white/60 hover:text-white">← Accueil</Link>
+            <Link href="/" className="text-sm text-white/75 hover:text-white">← Accueil</Link>
             <div className="text-xs uppercase tracking-widest text-orange-300 font-bold">Attestation officielle</div>
           </div>
         </header>
@@ -290,7 +290,7 @@ export default function AttestationPage() {
             <div>
               <div className="text-[10px] uppercase tracking-widest text-orange-300 font-bold">Attestation</div>
               <h1 className="text-xl font-black text-white">{data.numero}</h1>
-              <p className="text-sm text-white/60">Variante : <span className="font-semibold text-white">{variantLabel}</span> · {data.date}</p>
+              <p className="text-sm text-white/75">Variante : <span className="font-semibold text-white">{variantLabel}</span> · {data.date}</p>
             </div>
             <div className="flex gap-2">
               <button onClick={() => setStep('capture')} className="px-4 py-2 rounded-lg border border-slate-300 text-white/80 text-sm font-semibold hover:bg-white/5">← Modifier</button>
@@ -343,7 +343,7 @@ export default function AttestationPage() {
               placeholder="Paragraphe juridique : DTU 64.1, arrêtés ANC, portée vente immobilière, délais de mise en conformité…"
               className="w-full border-2 border-white/10 focus:border-[#a78346] outline-none rounded-lg px-3 py-2 text-sm"
             />
-            <div className="text-xs uppercase tracking-wide text-white/60 mt-2 mb-1">
+            <div className="text-xs uppercase tracking-wide text-white/75 mt-2 mb-1">
               Références citées (une par ligne)
             </div>
             <textarea
@@ -364,7 +364,7 @@ export default function AttestationPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-white/60 border-b border-white/10">
+                  <tr className="text-left text-xs uppercase tracking-wide text-white/75 border-b border-white/10">
                     <th className="py-2 pr-2">Label</th>
                     <th className="py-2 pr-2">Valeur / constat</th>
                     <th className="py-2 pr-2 w-24">Statut</th>
@@ -415,7 +415,7 @@ export default function AttestationPage() {
             <section className="spanc-card p-5 space-y-3">
               <h2 className="font-bold text-white">Anomalies &amp; recommandations</h2>
               <div>
-                <div className="text-xs uppercase tracking-wide text-white/60 mb-1">Anomalies (une par ligne)</div>
+                <div className="text-xs uppercase tracking-wide text-white/75 mb-1">Anomalies (une par ligne)</div>
                 <textarea
                   value={(data.anomalies || []).join('\n')}
                   onChange={e => setData({ ...data, anomalies: e.target.value.split('\n').filter(Boolean) })}
@@ -424,7 +424,7 @@ export default function AttestationPage() {
                 />
               </div>
               <div>
-                <div className="text-xs uppercase tracking-wide text-white/60 mb-1">Recommandations (une par ligne)</div>
+                <div className="text-xs uppercase tracking-wide text-white/75 mb-1">Recommandations (une par ligne)</div>
                 <textarea
                   value={(data.recommandations || []).join('\n')}
                   onChange={e => setData({ ...data, recommandations: e.target.value.split('\n').filter(Boolean) })}
@@ -444,7 +444,7 @@ export default function AttestationPage() {
               rows={4}
               className="w-full border-2 border-white/10 focus:border-[#0f2e5c] outline-none rounded-lg px-3 py-2 text-sm"
             />
-            <div className="text-xs uppercase tracking-wide text-white/60 mt-2 mb-1">Réserves (facultatif)</div>
+            <div className="text-xs uppercase tracking-wide text-white/75 mt-2 mb-1">Réserves (facultatif)</div>
             <textarea
               value={data.reserves || ''}
               onChange={e => setData({ ...data, reserves: e.target.value })}
@@ -513,7 +513,7 @@ export default function AttestationPage() {
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#0a1a3d] via-[#0e2a52] to-[#071026]" />
       <header className="relative z-20 bg-[#0e2a52]/90 backdrop-blur-xl ring-1 ring-white/10 border-b border-white/10 sticky top-0">
         <div className="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
-          <Link href="/" className="text-sm text-white/60 hover:text-white">← Accueil</Link>
+          <Link href="/" className="text-sm text-white/75 hover:text-white">← Accueil</Link>
           <div className="text-xs uppercase tracking-widest text-orange-300 font-bold">Attestation officielle</div>
         </div>
       </header>
@@ -534,7 +534,7 @@ export default function AttestationPage() {
                 key={opt.key}
                 type="button"
                 onClick={() => setVariante(opt.key)}
-                className={`text-left rounded-xl border-2 p-3 transition-all ${variante === opt.key ? `${opt.color} shadow-md` : 'border-white/10 bg-white text-white/70 hover:border-slate-300'}`}
+                className={`text-left rounded-xl border-2 p-3 transition-all ${variante === opt.key ? `${opt.color} shadow-md` : 'spanc-option text-white/90'}`}
               >
                 <div className="font-black">{opt.label}</div>
                 <div className="text-xs mt-1 opacity-80">{opt.desc}</div>
@@ -552,7 +552,7 @@ export default function AttestationPage() {
             <Field label="Adresse du bien" value={adresse} onChange={setAdresse} placeholder="1 place du Château" />
             <Field label="Code postal" value={codePostal} onChange={setCodePostal} />
             <label className="block text-sm">
-              <span className="text-xs uppercase tracking-wide text-white/60">Commune</span>
+              <span className="text-xs uppercase tracking-wide text-white/75">Commune</span>
               <div className="mt-1">
                 <CommuneSensCombobox
                   value={ville}
@@ -563,7 +563,7 @@ export default function AttestationPage() {
               </div>
             </label>
             <label className="block text-sm">
-              <span className="text-xs uppercase tracking-wide text-white/60">Date de l&apos;inspection</span>
+              <span className="text-xs uppercase tracking-wide text-white/75">Date de l&apos;inspection</span>
               <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full border border-white/10 rounded px-2 py-1.5 mt-1" />
             </label>
           </div>
@@ -582,7 +582,7 @@ export default function AttestationPage() {
             />
           </div>
           <div>
-            <label className="text-xs uppercase tracking-wide text-white/60">Prétraitement</label>
+            <label className="text-xs uppercase tracking-wide text-white/75">Prétraitement</label>
             <select value={pretraitement} onChange={e => setPretraitement(e.target.value as TypePretraitement | '')} className="w-full border border-white/10 rounded px-2 py-1.5 mt-1 bg-white">
               <option value="">— (facultatif)</option>
               {(Object.keys(PRETRAITEMENT_LABELS) as TypePretraitement[]).map(t => (
@@ -591,7 +591,7 @@ export default function AttestationPage() {
             </select>
           </div>
           <div>
-            <label className="text-xs uppercase tracking-wide text-white/60">Traitement</label>
+            <label className="text-xs uppercase tracking-wide text-white/75">Traitement</label>
             <select value={traitement} onChange={e => setTraitement(e.target.value as TypeTraitement | '')} className="w-full border border-white/10 rounded px-2 py-1.5 mt-1 bg-white">
               <option value="">— (facultatif)</option>
               {(Object.keys(TRAITEMENT_LABELS) as TypeTraitement[]).map(t => (
@@ -600,7 +600,7 @@ export default function AttestationPage() {
             </select>
           </div>
           <div>
-            <label className="text-xs uppercase tracking-wide text-white/60">Exutoire / rejet</label>
+            <label className="text-xs uppercase tracking-wide text-white/75">Exutoire / rejet</label>
             <select value={rejet} onChange={e => setRejet(e.target.value as TypeRejet | '')} className="w-full border border-white/10 rounded px-2 py-1.5 mt-1 bg-white">
               <option value="">— (facultatif)</option>
               {(Object.keys(REJET_LABELS) as TypeRejet[]).map(t => (
@@ -623,7 +623,7 @@ export default function AttestationPage() {
         <section className="spanc-card p-5 space-y-4">
           <div>
             <h2 className="font-bold text-white">Récit de l&apos;inspection</h2>
-            <p className="text-sm text-white/60 mt-1">
+            <p className="text-sm text-white/75 mt-1">
               Dicte ce que tu as inspecté, les moyens utilisés (caméra, ouverture de regard, etc.), les relevés et ta conclusion.
             </p>
           </div>
@@ -648,7 +648,7 @@ export default function AttestationPage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="font-bold text-white">Photos d&apos;inspection</h2>
-              <p className="text-xs text-white/60 mt-1">Regard ouvert, raccordement, réseau, coloration — facultatif.</p>
+              <p className="text-xs text-white/75 mt-1">Regard ouvert, raccordement, réseau, coloration — facultatif.</p>
             </div>
             <span className="bg-[#0f2e5c] text-white text-xs font-bold w-7 h-7 rounded-full flex items-center justify-center">{photos.length}</span>
           </div>
@@ -670,7 +670,7 @@ export default function AttestationPage() {
           )}
           <label className="block">
             <input type="file" accept="image/*" capture="environment" multiple onChange={e => { const files = e.target.files; if (files) { Array.from(files).forEach(f => addPhoto(f)); (e.target as HTMLInputElement).value = '' } }} className="hidden" id="att-photo-input" />
-            <label htmlFor="att-photo-input" className="block w-full text-center border-2 border-dashed border-slate-300 text-white/60 hover:border-[#0f2e5c] hover:text-white rounded-xl py-4 cursor-pointer transition-colors">
+            <label htmlFor="att-photo-input" className="block w-full text-center border-2 border-dashed border-slate-300 text-white/75 hover:border-[#0f2e5c] hover:text-white rounded-xl py-4 cursor-pointer transition-colors">
               + Ajouter des photos
             </label>
           </label>
@@ -695,7 +695,7 @@ export default function AttestationPage() {
 function Field({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
     <label className="block text-sm">
-      <span className="text-xs uppercase tracking-wide text-white/60">{label}</span>
+      <span className="text-xs uppercase tracking-wide text-white/75">{label}</span>
       <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="w-full border border-white/10 rounded px-2 py-1.5 mt-1" />
     </label>
   )

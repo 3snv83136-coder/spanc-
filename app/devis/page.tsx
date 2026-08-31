@@ -134,7 +134,7 @@ export default function DevisPage() {
         <div className="spanc-card p-8 max-w-md w-full text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-400/30 border-t-[#0e2a52] mb-4" />
           <h2 className="text-xl font-black text-white">Analyse de la dictée…</h2>
-          <p className="text-sm text-white/60 mt-2">L&apos;IA structure le devis (objet, lignes, conditions, TVA).</p>
+          <p className="text-sm text-white/75 mt-2">L&apos;IA structure le devis (objet, lignes, conditions, TVA).</p>
         </div>
       </div>
     )
@@ -169,7 +169,7 @@ export default function DevisPage() {
           <div className="spanc-card p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h1 className="text-xl font-black text-white">Devis N° {devis.numero}</h1>
-              <p className="text-sm text-white/60">Établi le {fmtDateISOtoFR(devis.date_devis)} · valable {devis.validite_jours} jours</p>
+              <p className="text-sm text-white/75">Établi le {fmtDateISOtoFR(devis.date_devis)} · valable {devis.validite_jours} jours</p>
             </div>
             <div className="flex gap-2">
               <button
@@ -218,7 +218,7 @@ export default function DevisPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-white/60 border-b border-white/10">
+                  <tr className="text-left text-xs uppercase tracking-wide text-white/75 border-b border-white/10">
                     <th className="py-2 pr-2">Section</th>
                     <th className="py-2 pr-2">Désignation</th>
                     <th className="py-2 pr-2 w-16">Qté</th>
@@ -248,7 +248,7 @@ export default function DevisPage() {
                           value={l.description || ''}
                           onChange={e => updateLine(i, { description: e.target.value })}
                           placeholder="précisions (optionnel)"
-                          className="w-full border border-white/10 rounded px-2 py-1 text-xs text-white/60"
+                          className="w-full border border-white/10 rounded px-2 py-1 text-xs text-white/75"
                         />
                       </td>
                       <td className="py-1 pr-2">
@@ -313,7 +313,7 @@ export default function DevisPage() {
                   <span className="font-bold">Montant TTC</span>
                   <span className="font-bold">{ttc.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
                 </div>
-                <label className="flex items-center gap-2 text-xs text-white/60 mt-2">
+                <label className="flex items-center gap-2 text-xs text-white/75 mt-2">
                   <input
                     type="checkbox"
                     checked={!!devis.tva_reduite_attestation}
@@ -344,7 +344,7 @@ export default function DevisPage() {
             <h2 className="font-bold text-white">Modalités de règlement</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="block text-sm">
-                <span className="text-xs uppercase tracking-wide text-white/60">Acompte (%)</span>
+                <span className="text-xs uppercase tracking-wide text-white/75">Acompte (%)</span>
                 <input
                   type="number" min="0" max="100" step="1"
                   value={devis.modalites?.acompte_pct ?? 30}
@@ -381,14 +381,14 @@ export default function DevisPage() {
       <main className="max-w-3xl mx-auto px-4 py-5 space-y-4">
         <div className="text-center">
           <h1 className="text-2xl font-black text-white">Nouveau devis</h1>
-          <p className="text-sm text-white/60 mt-1">Dicte les travaux, les quantités et les prix — on s&apos;occupe du reste.</p>
+          <p className="text-sm text-white/75 mt-1">Dicte les travaux, les quantités et les prix — on s&apos;occupe du reste.</p>
         </div>
 
         {/* Dictée */}
         <div className="spanc-card p-5 sm:p-6 space-y-4">
           <div>
             <h2 className="text-xl font-black text-white">Raconte le chantier</h2>
-            <p className="text-sm text-white/60 mt-1">
+            <p className="text-sm text-white/75 mt-1">
               Dicte ou tape. Exemple : « Devis pour M. Dupont à Solliès-Pont — réhabilitation ANC : étude de sol 480 €, fosse toutes eaux 3 m³ 1 850 €, filtre à sable drainé 25 m² 4 200 €, vidange ancienne fosse 280 €, terrassement 8 m³ à 95 € le m³, TVA 10 %. »
             </p>
           </div>
@@ -431,7 +431,7 @@ export default function DevisPage() {
             <Field label="Ville" value={clientVille} onChange={setClientVille} />
             <Field label="Adresse du chantier" value={adresseChantier} onChange={setAdresseChantier} placeholder="idem / autre" />
             <label className="block text-sm">
-              <span className="text-xs uppercase tracking-wide text-white/60">Date du devis</span>
+              <span className="text-xs uppercase tracking-wide text-white/75">Date du devis</span>
               <input
                 type="date"
                 value={dateDevis}
@@ -473,7 +473,7 @@ function Field({
 }) {
   return (
     <label className="block text-sm">
-      <span className="text-xs uppercase tracking-wide text-white/60">{label}</span>
+      <span className="text-xs uppercase tracking-wide text-white/75">{label}</span>
       <input
         value={value}
         onChange={e => onChange(e.target.value)}
