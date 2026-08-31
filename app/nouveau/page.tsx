@@ -1,10 +1,11 @@
 'use client'
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import dynamic from "next/dynamic"
 import VoiceRecorder from "@/components/VoiceRecorder"
 import CommuneSensCombobox from "@/components/CommuneSensCombobox"
 import CadastreFields from "@/components/CadastreFields"
+import { useOffline } from "@/components/OfflineProvider"
 import {
   TYPE_CONTROLE_LABELS,
   AVIS_LABELS,
@@ -27,6 +28,12 @@ import { findCommuneByName } from "@/lib/communes-sens"
 import { saveDossier } from "@/lib/sispea/dossiers"
 import { loadCartoPlan } from "@/lib/cartographie/storage"
 import { buildCartographieUrl } from "@/lib/cartographie/urls"
+import { clearControleDraft, loadControleDraft, saveControleDraft } from "@/lib/offline/drafts"
+import { enqueueEmailJob, enqueueGenerateJob } from "@/lib/offline/queue"
+import { buildOfflineRapport } from "@/lib/offline/template-rapport"
+import type { GenerateRapportPayload, StoredPhoto } from "@/lib/offline/types"
+import { OFFLINE_SYNC_EVENT } from "@/lib/offline/types"
+import type { SyncResult } from "@/lib/offline/sync"
 
 function communeInsee(nom: string): string | null {
   return findCommuneByName(nom)?.insee ?? null
@@ -91,8 +98,14 @@ async function compressImage(file: File, maxDim = 1600, quality = 0.8): Promise<
 }
 
 export default function NouveauControleSPANCPage() {
+  const { online, refreshPending } = useOffline()
   const [step, setStep] = useState<Step>('saisie')
   const [error, setError] = useState('')
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null)
+  const [aiSyncPending, setAiSyncPending] = useState(false)
+  const [emailQueued, setEmailQueued] = useState(false)
+  const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const draftLoaded = useRef(false)
 
   // Type de contrôle
   const [typeControle, setTypeControle] = useState<TypeControle>('periodique')
@@ -158,6 +171,94 @@ export default function NouveauControleSPANCPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (draftLoaded.current) return
+    draftLoaded.current = true
+    void loadControleDraft().then(draft => {
+      if (!draft) return
+      setTypeControle(draft.typeControle)
+      setNom(draft.nom)
+      setPrenom(draft.prenom)
+      setAdresse(draft.adresse)
+      setCodePostal(draft.codePostal)
+      setCommune(draft.commune)
+      setSectionCadastrale(draft.sectionCadastrale)
+      setNumeroParcelle(draft.numeroParcelle)
+      setEmail(draft.email)
+      setTelephone(draft.telephone)
+      setNbPieces(draft.nbPieces)
+      setTypePretraitement(draft.typePretraitement)
+      setVolumePretraitement(draft.volumePretraitement)
+      setTypeTraitement(draft.typeTraitement)
+      setTypeRejet(draft.typeRejet)
+      setDateInstallation(draft.dateInstallation)
+      setDerniereVidange(draft.derniereVidange)
+      setCheckboxes(draft.checkboxes)
+      setNiveauBoues(draft.niveauBoues)
+      setAvisAgent(draft.avisAgent)
+      setDictee(draft.dictee)
+      setTechnicien(draft.technicien)
+      setDateControle(draft.dateControle)
+      setPhotos(draft.photos.map((p, i) => ({
+        file: new File([], p.name || `photo-${i + 1}.jpg`, { type: 'image/jpeg' }),
+        dataUrl: p.dataUrl,
+        preview: p.dataUrl,
+        legende: p.legende,
+      })))
+      setDraftSavedAt(draft.updatedAt)
+    })
+  }, [])
+
+  const persistDraftNow = useCallback(async () => {
+    if (step !== 'saisie') return
+    const storedPhotos: StoredPhoto[] = photos.map((p, i) => ({
+      dataUrl: p.dataUrl,
+      legende: p.legende,
+      name: p.file.name || `photo-${i + 1}.jpg`,
+    }))
+    await saveControleDraft({
+      typeControle,
+      nom, prenom, adresse, codePostal, commune,
+      sectionCadastrale, numeroParcelle,
+      email, telephone, nbPieces,
+      typePretraitement, volumePretraitement,
+      typeTraitement, typeRejet,
+      dateInstallation, derniereVidange,
+      checkboxes, niveauBoues, avisAgent,
+      dictee, photos: storedPhotos,
+      technicien, dateControle,
+    })
+    setDraftSavedAt(new Date().toISOString())
+  }, [
+    step, typeControle, nom, prenom, adresse, codePostal, commune,
+    sectionCadastrale, numeroParcelle, email, telephone, nbPieces,
+    typePretraitement, volumePretraitement, typeTraitement, typeRejet,
+    dateInstallation, derniereVidange, checkboxes, niveauBoues, avisAgent,
+    dictee, photos, technicien, dateControle,
+  ])
+
+  useEffect(() => {
+    if (step !== 'saisie') return
+    if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current)
+    draftSaveTimer.current = setTimeout(() => { void persistDraftNow() }, 1500)
+    return () => {
+      if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current)
+    }
+  }, [step, persistDraftNow])
+
+  useEffect(() => {
+    function onSync(e: Event) {
+      const detail = (e as CustomEvent<SyncResult>).detail
+      if (!rapport || !aiSyncPending) return
+      const match = detail.enrichedReports.find(r => r.numeroRapport === rapport.numeroRapport)
+      if (!match) return
+      setRapport({ ...match.rapport, photos: rapport.photos })
+      setAiSyncPending(false)
+    }
+    window.addEventListener(OFFLINE_SYNC_EVENT, onSync)
+    return () => window.removeEventListener(OFFLINE_SYNC_EVENT, onSync)
+  }, [rapport, aiSyncPending])
+
   function selectCommune(c: { nom: string; cp: string; insee: string }) {
     setCommune(c.nom)
     if (!codePostal) setCodePostal(c.cp)
@@ -203,28 +304,56 @@ export default function NouveauControleSPANCPage() {
     }
   }
 
+  function buildGeneratePayload(numeroRapport?: string): GenerateRapportPayload {
+    return {
+      typeControle,
+      usager: buildUsager(),
+      filiere: buildFiliere(),
+      dictee,
+      checkboxes,
+      niveauBoues,
+      avisAgent,
+      technicien,
+      dateControle,
+      numeroRapport,
+    }
+  }
+
+  async function generateOfflineRapport() {
+    const payload = buildGeneratePayload()
+    const offlineRapport = buildOfflineRapport({
+      ...payload,
+      photos: photos.map(p => p.dataUrl),
+    })
+    const label = `Rapport ${offlineRapport.usager.commune} — ${offlineRapport.numeroRapport}`
+    await enqueueGenerateJob(
+      { ...payload, numeroRapport: offlineRapport.numeroRapport },
+      offlineRapport.numeroRapport,
+      label,
+    )
+    await refreshPending()
+    setRapport(offlineRapport)
+    setAiSyncPending(true)
+    setStep('verif')
+  }
+
   async function handleGenerate() {
     setError('')
     if (!technicien) { setError('Indique ton nom de technicien.'); return }
     if (!commune) { setError('Renseigne la commune.'); return }
     if (dictee.trim().length < 20) { setError('Dicte au moins quelques phrases sur le contrôle.'); return }
 
+    if (!online) {
+      await generateOfflineRapport()
+      return
+    }
+
     setStep('generating')
     try {
       const res = await fetch('/api/spanc/rapport', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          typeControle,
-          usager: buildUsager(),
-          filiere: buildFiliere(),
-          dictee,
-          checkboxes,
-          niveauBoues,
-          avisAgent,
-          technicien,
-          dateControle,
-        }),
+        body: JSON.stringify(buildGeneratePayload()),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur génération')
@@ -234,8 +363,13 @@ export default function NouveauControleSPANCPage() {
         photos: photos.map(p => p.dataUrl),
       }
       setRapport(fullRapport)
+      setAiSyncPending(false)
       setStep('verif')
     } catch (e: any) {
+      if (!navigator.onLine || /fetch|network|failed|load/i.test(String(e.message))) {
+        await generateOfflineRapport()
+        return
+      }
       setError(`Erreur : ${e.message}`)
       setStep('saisie')
     }
@@ -273,6 +407,23 @@ export default function NouveauControleSPANCPage() {
   async function handleSendEmail() {
     if (!rapport) return
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) { setError('Email usager invalide.'); return }
+
+    if (!online) {
+      setError('')
+      await enqueueEmailJob({
+        rapport,
+        photos: photos.map(p => ({ url: p.dataUrl, legende: p.legende })),
+        planImage: getPlanImageUrl(),
+        to: email,
+      }, `Email ${rapport.numeroRapport}`)
+      await refreshPending()
+      setEmailQueued(true)
+      setEmailSent(false)
+      persistDossier(rapport)
+      setStep('done')
+      return
+    }
+
     setStep('sending')
     setError('')
     try {
@@ -299,6 +450,7 @@ export default function NouveauControleSPANCPage() {
   function resetAll() {
     setStep('saisie')
     setError(''); setRapport(null); setEmailSent(false)
+    setEmailQueued(false); setAiSyncPending(false)
     setNom(''); setPrenom(''); setAdresse(''); setCodePostal(''); setCommune('')
     setSectionCadastrale(''); setNumeroParcelle('')
     setEmail(''); setTelephone(''); setNbPieces('')
@@ -307,6 +459,8 @@ export default function NouveauControleSPANCPage() {
     setDateInstallation(''); setDerniereVidange('')
     setCheckboxes({}); setNiveauBoues(20); setAvisAgent('conforme')
     setDictee(''); setPhotos([])
+    void clearControleDraft()
+    setDraftSavedAt(null)
   }
 
   function getPlanImageUrl(): string | undefined {
@@ -416,6 +570,12 @@ export default function NouveauControleSPANCPage() {
       </div>
 
       <main className="relative z-10 max-w-3xl mx-auto px-4 py-5 space-y-4">
+        {step === 'saisie' && draftSavedAt && (
+          <p className="text-xs text-emerald-300/80 text-center">
+            💾 Brouillon sauvegardé localement · utilisable hors connexion
+          </p>
+        )}
+
         {/* ═════ ÉTAPE 1 — SAISIE ═════ */}
         {step === 'saisie' && (
           <>
@@ -676,14 +836,25 @@ export default function NouveauControleSPANCPage() {
 
         {/* ═════ ÉTAPE 2 — VÉRIFICATION ═════ */}
         {step === 'verif' && rapport && (
-          <RapportEditor
-            rapport={rapport}
-            onPatch={patchRapport}
-            onPatchPC={patchPointControle}
-            onContinue={() => { persistDossier(rapport); setStep('rapport') }}
-            onBack={() => setStep('saisie')}
-            onRegenerate={handleGenerate}
-          />
+          <>
+            {aiSyncPending && (
+              <div className="spanc-card p-4 text-sm text-amber-100 bg-amber-500/10 ring-1 ring-amber-400/30 space-y-1">
+                <p className="font-bold">📡 Rapport terrain provisoire</p>
+                <p className="text-white/70">
+                  Vous pouvez télécharger le PDF maintenant. L&apos;enrichissement IA sera appliqué automatiquement au retour du réseau
+                  {online ? ' (synchronisation en cours…)' : ''}.
+                </p>
+              </div>
+            )}
+            <RapportEditor
+              rapport={rapport}
+              onPatch={patchRapport}
+              onPatchPC={patchPointControle}
+              onContinue={() => { persistDossier(rapport); void clearControleDraft(); setStep('rapport') }}
+              onBack={() => setStep('saisie')}
+              onRegenerate={handleGenerate}
+            />
+          </>
         )}
 
         {/* ═════ ÉTAPE 3 — RAPPORT ═════ */}
@@ -707,6 +878,9 @@ export default function NouveauControleSPANCPage() {
             <h2 className="text-2xl font-black text-emerald-300">Rapport généré !</h2>
             {emailSent && (
               <p className="text-emerald-300 font-semibold">📧 Email envoyé à {email}</p>
+            )}
+            {emailQueued && (
+              <p className="text-amber-200 font-semibold">📬 Email en attente — sera envoyé à la synchronisation</p>
             )}
             <div className="bg-white/5 rounded-xl p-4 text-left space-y-1">
               <div className="text-xs text-white/60 uppercase tracking-wider">Numéro</div>
@@ -743,7 +917,7 @@ export default function NouveauControleSPANCPage() {
               disabled={dictee.trim().length < 20 || !commune || !technicien}
               className="flex-[2] spanc-btn-navy py-3.5 text-sm shadow-lg active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              🚀 Générer le rapport
+              {online ? '🚀 Générer le rapport' : '📝 Rapport terrain (hors ligne)'}
             </button>
           </div>
         </div>

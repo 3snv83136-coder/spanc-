@@ -101,10 +101,11 @@ export default function TelechargerPage() {
         </section>
 
         <section className="text-blue-200 bg-blue-500/10 ring-1 ring-blue-400/30 rounded-2xl p-4 text-sm space-y-2">
-          <p className="font-bold text-blue-100">Connexion internet requise</p>
+          <p className="font-bold text-blue-100">Connexion internet</p>
           <p className="text-blue-100/90">
-            L&apos;application installée se connecte au serveur SPANC en ligne. Vos données terrain (plans, dossiers)
-            restent enregistrées localement dans le navigateur de l&apos;appareil.
+            L&apos;application installée se connecte au serveur SPANC en ligne pour l&apos;IA et les emails.
+            En mode <strong>hors ligne</strong>, vous pouvez saisir les contrôles, générer un PDF provisoire et synchroniser au retour du réseau
+            (menu <Link href="/sync" className="underline">Synchronisation</Link>).
           </p>
         </section>
       </div>

@@ -1,6 +1,7 @@
 'use client'
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { useOffline } from "@/components/OfflineProvider"
 
 const AGGLO_SENS_VILLES = [
   'Sens', 'Saint-Clément', 'Paron', 'Saint-Denis-lès-Sens', 'Maillot', 'Malay-le-Grand',
@@ -11,6 +12,7 @@ const AGGLO_SENS_VILLES = [
 ]
 
 export default function Home() {
+  const { pendingCount } = useOffline()
   const [agent, setAgent] = useState<string | null>(null)
   const [code, setCode] = useState('')
   const [loginError, setLoginError] = useState('')
@@ -166,6 +168,11 @@ export default function Home() {
                   Connecté · <span className="font-bold text-orange-300">{agent}</span>
                 </span>
                 <div className="flex items-center gap-3">
+                  {pendingCount > 0 && (
+                    <Link href="/sync" className="text-amber-300 hover:text-amber-200 font-semibold underline underline-offset-2">
+                      ⏳ Sync ({pendingCount})
+                    </Link>
+                  )}
                   <Link href="/telecharger" className="text-cyan-300 hover:text-cyan-200 font-semibold underline underline-offset-2">
                     💻 Installer
                   </Link>

@@ -26,6 +26,8 @@ interface RequestBody {
   avisAgent?: AvisConformite
   technicien?: string
   dateControle?: string
+  /** Conserve le numéro provisoire généré hors ligne */
+  numeroRapport?: string
 }
 
 async function callWithRetry<T>(fn: () => Promise<T>, maxAttempts = 4): Promise<T> {
@@ -232,7 +234,7 @@ export async function POST(req: NextRequest) {
 
     const avisFinal: AvisConformite = rapportIA.avis_final || body.avisAgent || 'conforme'
     const prochaineEcheance = rapportIA.prochaine_echeance || prochaineEcheanceParDefaut(avisFinal, body.typeControle)
-    const numeroRapport = genererNumeroRapport()
+    const numeroRapport = body.numeroRapport || genererNumeroRapport()
 
     return NextResponse.json({
       rapport: {
