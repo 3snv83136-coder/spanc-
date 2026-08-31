@@ -4,6 +4,9 @@ import Link from 'next/link'
 import InstallAppButton from '@/components/InstallAppButton'
 
 const APP_URL = 'https://spanc-sens.vercel.app'
+const MAC_DMG = '/downloads/SPANC-Sens-mac-arm64.dmg'
+const MAC_VERSION = '1.0.0'
+const MAC_SIZE = '95 Mo'
 
 export default function TelechargerPage() {
   return (
@@ -31,13 +34,39 @@ export default function TelechargerPage() {
           <div className="flex flex-col items-center gap-3 pt-2">
             <InstallAppButton label="Installer SPANC (recommandé)" className="w-full sm:w-auto" />
             <p className="text-xs text-white/50">
-              Bouton visible sur Chrome et Edge. Sinon, suivez les instructions ci-dessous.
+              Bouton visible sur Chrome et Edge. Sinon, téléchargez l&apos;installateur ci-dessous.
             </p>
           </div>
         </section>
 
+        <section className="spanc-card p-5 space-y-4 ring-2 ring-orange-400/30">
+          <div className="flex items-start gap-3">
+            <span className="text-3xl">🍎</span>
+            <div className="flex-1 space-y-1">
+              <h2 className="font-black text-lg">Télécharger pour Mac</h2>
+              <p className="text-sm text-white/70">
+                Installateur <strong>.dmg</strong> · version {MAC_VERSION} · {MAC_SIZE} · Mac Apple Silicon (M1/M2/M3)
+              </p>
+            </div>
+          </div>
+          <a
+            href={MAC_DMG}
+            download="SPANC-Sens-mac.dmg"
+            className="flex items-center justify-center gap-2 w-full rounded-xl bg-orange-500 px-5 py-4 font-black text-white shadow-lg shadow-orange-500/30 transition-colors hover:bg-orange-600 active:scale-[0.99]"
+          >
+            ⬇ Télécharger SPANC pour Mac (.dmg)
+          </a>
+          <ol className="list-decimal list-inside space-y-2 text-sm text-white/80 border-t border-white/10 pt-4">
+            <li>Ouvrez le fichier <strong>SPANC-Sens-mac-arm64.dmg</strong> téléchargé.</li>
+            <li>Glissez <strong>SPANC Sens</strong> dans le dossier <strong>Applications</strong>.</li>
+            <li>
+              Si macOS bloque l&apos;ouverture : <strong>Réglages Système → Confidentialité et sécurité → Ouvrir quand même</strong>.
+            </li>
+          </ol>
+        </section>
+
         <section className="spanc-card p-5 space-y-4">
-          <h2 className="font-black text-lg flex items-center gap-2">🍎 Sur Mac</h2>
+          <h2 className="font-black text-lg flex items-center gap-2">🍎 Installation via navigateur (Mac)</h2>
           <ol className="list-decimal list-inside space-y-3 text-sm text-white/80">
             <li>
               Ouvrez <a href={APP_URL} className="text-cyan-300 underline underline-offset-2" target="_blank" rel="noopener noreferrer">{APP_URL}</a> dans <strong>Google Chrome</strong> ou <strong>Microsoft Edge</strong>.
@@ -54,6 +83,9 @@ export default function TelechargerPage() {
 
         <section className="spanc-card p-5 space-y-4">
           <h2 className="font-black text-lg flex items-center gap-2">🪟 Sur Windows (PC)</h2>
+          <p className="text-sm text-white/70">
+            Utilisez l&apos;installation via navigateur (Chrome ou Edge) — même principe que sur Mac :
+          </p>
           <ol className="list-decimal list-inside space-y-3 text-sm text-white/80">
             <li>
               Ouvrez <a href={APP_URL} className="text-cyan-300 underline underline-offset-2" target="_blank" rel="noopener noreferrer">{APP_URL}</a> dans <strong>Google Chrome</strong> ou <strong>Microsoft Edge</strong>.
@@ -63,21 +95,9 @@ export default function TelechargerPage() {
             </li>
             <li>L&apos;application est ajoutée au <strong>menu Démarrer</strong> et peut être épinglée à la barre des tâches.</li>
           </ol>
-        </section>
-
-        <section className="spanc-card p-5 space-y-3">
-          <h2 className="font-black text-lg">📦 Version bureau (.app / .exe)</h2>
-          <p className="text-sm text-white/70">
-            Une version empaquetée Electron (installateur Mac .dmg ou Windows .exe) peut être compilée
-            depuis le dossier <code className="text-orange-200">desktop/</code> du projet.
-            Contactez l&apos;administrateur pour obtenir le fichier d&apos;installation ou lancez :
+          <p className="text-xs text-amber-200/80 bg-amber-500/10 ring-1 ring-amber-400/30 rounded-xl px-3 py-2">
+            Installateur Windows (.exe) : en cours de préparation. En attendant, l&apos;installation via Chrome/Edge est équivalente.
           </p>
-          <pre className="text-xs bg-black/30 rounded-xl p-4 overflow-x-auto text-emerald-200/90 ring-1 ring-white/10">
-{`cd desktop
-npm install
-npm run build:mac    # Mac → fichier .dmg
-npm run build:win    # Windows → fichier .exe`}
-          </pre>
         </section>
 
         <section className="text-blue-200 bg-blue-500/10 ring-1 ring-blue-400/30 rounded-2xl p-4 text-sm space-y-2">
