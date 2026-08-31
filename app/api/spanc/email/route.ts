@@ -11,6 +11,7 @@ export const dynamic = 'force-dynamic'
 interface RequestBody {
   rapport: RapportSPANC
   photos?: { url: string; legende?: string }[]
+  planImage?: string
   to?: string
   cc?: string[]
 }
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
     const resend = new Resend(apiKey)
 
     const pdfBuffer = await renderToBuffer(
-      React.createElement(RapportSPANCDocument, { rapport, photos: body.photos || [] }) as any
+      React.createElement(RapportSPANCDocument, { rapport, photos: body.photos || [], planImage: body.planImage }) as any
     )
 
     const av = AVIS_LABELS[rapport.avisConformite]

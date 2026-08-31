@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useCallback, useEffect, useRef, useState, Suspense } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import CommuneSensCombobox from '@/components/CommuneSensCombobox'
 import CadastreFields from '@/components/CadastreFields'
 import { findCommuneByName, type CommuneSens } from '@/lib/communes-sens'
@@ -22,9 +22,12 @@ const CartographieEditor = dynamic(() => import('@/components/cartographie/Carto
 
 function CartographieContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const autoOpened = useRef(false)
   const [step, setStep] = useState<'setup' | 'editor'>('setup')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const returnTo = searchParams.get('return') || ''
 
   const [adresse, setAdresse] = useState(searchParams.get('adresse') || '')
   const [codePostal, setCodePostal] = useState(searchParams.get('cp') || '')
@@ -45,7 +48,7 @@ function CartographieContent() {
     setCodePostal(c.cp)
   }
 
-  async function openEditor() {
+  const openEditor = useCallback(async () => {
     setError('')
     if (!adresse.trim()) { setError('Adresse requise'); return }
     if (!commune.trim()) { setError('Commune requise'); return }
@@ -103,10 +106,32 @@ function CartographieContent() {
     } finally {
       setLoading(false)
     }
+  }, [adresse, codePostal, commune, insee, section, numero])
+
+  useEffect(() => {
+    if (autoOpened.current) return
+    if (searchParams.get('auto') !== '1') return
+    if (!adresse.trim() || !commune.trim() || !section.trim() || !numero.trim() || !insee) return
+    autoOpened.current = true
+    void openEditor()
+  }, [adresse, commune, section, numero, insee, searchParams, openEditor])
+
+  function handleEditorBack() {
+    if (returnTo.startsWith('/')) {
+      router.push(returnTo)
+      return
+    }
+    setStep('setup')
   }
 
   if (step === 'editor' && plan) {
-    return <CartographieEditor plan={plan} onBack={() => setStep('setup')} />
+    return (
+      <CartographieEditor
+        plan={plan}
+        onBack={handleEditorBack}
+        backLabel={returnTo ? '← Retour au contrôle' : '← Retour'}
+      />
+    )
   }
 
   return (

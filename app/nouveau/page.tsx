@@ -26,6 +26,7 @@ import {
 import { findCommuneByName } from "@/lib/communes-sens"
 import { saveDossier } from "@/lib/sispea/dossiers"
 import { loadCartoPlan } from "@/lib/cartographie/storage"
+import { buildCartographieUrl } from "@/lib/cartographie/urls"
 
 function communeInsee(nom: string): string | null {
   return findCommuneByName(nom)?.insee ?? null
@@ -122,6 +123,7 @@ export default function NouveauControleSPANCPage() {
   const [avisAgent, setAvisAgent] = useState<AvisConformite>('conforme')
   const [dictee, setDictee] = useState('')
   const [photos, setPhotos] = useState<PhotoItem[]>([])
+  const [planRev, setPlanRev] = useState(0)
 
   // Technicien & date
   const [technicien, setTechnicien] = useState('')
@@ -142,6 +144,19 @@ export default function NouveauControleSPANCPage() {
   useEffect(() => {
     if (technicien && typeof window !== 'undefined') localStorage.setItem('spanc_technicien', technicien)
   }, [technicien])
+
+  useEffect(() => {
+    function refreshPlan() { setPlanRev(v => v + 1) }
+    window.addEventListener('focus', refreshPlan)
+    window.addEventListener('storage', refreshPlan)
+    const onVis = () => { if (document.visibilityState === 'visible') refreshPlan() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      window.removeEventListener('focus', refreshPlan)
+      window.removeEventListener('storage', refreshPlan)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [])
 
   function selectCommune(c: { nom: string; cp: string; insee: string }) {
     setCommune(c.nom)
@@ -267,6 +282,7 @@ export default function NouveauControleSPANCPage() {
         body: JSON.stringify({
           rapport,
           photos: photos.map(p => ({ url: p.dataUrl, legende: p.legende })),
+          planImage: getPlanImageUrl(),
           to: email,
         }),
       })
@@ -294,10 +310,23 @@ export default function NouveauControleSPANCPage() {
   }
 
   function getPlanImageUrl(): string | undefined {
+    void planRev
     const insee = communeInsee(commune)
     if (!insee || !sectionCadastrale || !numeroParcelle) return undefined
     return loadCartoPlan(insee, sectionCadastrale, numeroParcelle)?.exportImage
   }
+
+  const canOpenCarto = Boolean(adresse.trim() && commune.trim() && sectionCadastrale.trim() && numeroParcelle.trim() && communeInsee(commune))
+  const cartoHref = buildCartographieUrl({
+    adresse,
+    codePostal,
+    commune,
+    section: sectionCadastrale,
+    numero: numeroParcelle,
+    returnTo: '/nouveau',
+    auto: canOpenCarto,
+  })
+  const hasPlan = Boolean(getPlanImageUrl())
 
   const idx = stepperIdx(step)
 
@@ -315,6 +344,26 @@ export default function NouveauControleSPANCPage() {
             </div>
           </Link>
           <div className="text-right flex items-center gap-2">
+            {canOpenCarto ? (
+              <Link
+                href={cartoHref}
+                className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors ${
+                  hasPlan
+                    ? 'bg-emerald-500/20 text-emerald-200 ring-1 ring-emerald-400/40 hover:bg-emerald-500/30'
+                    : 'bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-400/40 hover:bg-cyan-500/25'
+                }`}
+                title="Éditer le schéma d'installation (intégré au rapport PDF)"
+              >
+                🗺️ {hasPlan ? 'Plan ✓' : 'Plan'}
+              </Link>
+            ) : (
+              <span
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold opacity-40 ring-1 ring-white/10"
+                title="Renseignez adresse, commune et parcelle pour ouvrir la cartographie"
+              >
+                🗺️ Plan
+              </span>
+            )}
             {editTech ? (
               <input
                 autoFocus
@@ -420,13 +469,14 @@ export default function NouveauControleSPANCPage() {
                   onSectionChange={setSectionCadastrale}
                   onNumeroChange={setNumeroParcelle}
                 />
-                {adresse && commune && sectionCadastrale && numeroParcelle && (
+                {canOpenCarto && (
                   <div className="sm:col-span-2">
                     <Link
-                      href={`/cartographie?adresse=${encodeURIComponent(adresse)}&cp=${encodeURIComponent(codePostal)}&commune=${encodeURIComponent(commune)}&section=${encodeURIComponent(sectionCadastrale)}&numero=${encodeURIComponent(numeroParcelle)}`}
+                      href={cartoHref}
                       className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-200 bg-cyan-500/15 border border-cyan-400/40 rounded-xl px-4 py-2.5 hover:bg-cyan-500/25"
                     >
                       🗺️ Éditer le plan d&apos;installation sur fond cadastral
+                      {hasPlan && <span className="text-emerald-300 text-xs font-bold">· enregistré</span>}
                     </Link>
                   </div>
                 )}
@@ -920,6 +970,15 @@ function RapportApercu({
           )}
         </div>
       </section>
+
+      {planImage && (
+        <section className="spanc-card p-5 space-y-2">
+          <h3 className="font-bold text-white">Schéma d&apos;installation</h3>
+          <p className="text-xs text-white/60">Plan cadastral enregistré — inclus dans le PDF du rapport.</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={planImage} alt="Schéma d'installation ANC" className="w-full rounded-xl border border-white/10 max-h-64 object-contain bg-white/5" />
+        </section>
+      )}
 
       <section className="spanc-card p-5 space-y-3">
         <h3 className="font-bold text-white">Actions</h3>

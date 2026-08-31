@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Map as LeafletMap, Layer, Circle, Polyline, Polygon } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import html2canvas from 'html2canvas'
 import {
   CARTO_COLORS,
   DEFAULT_CARTO_STYLE,
@@ -22,11 +21,14 @@ import {
 } from '@/lib/types/cartographie'
 import { EQUIPEMENTS_ANC, filterEquipements, findEquipement } from '@/lib/cartographie/equipements'
 import { saveCartoPlan } from '@/lib/cartographie/storage'
+import { captureCartoMapImage, persistCartoExportImage } from '@/lib/cartographie/export-image'
 import { boundsFromGeometry } from '@/lib/cartographie/geo'
 
 interface Props {
   plan: CartoPlan
   onBack: () => void
+  /** Libellé du bouton retour (ex. « Retour au contrôle ») */
+  backLabel?: string
 }
 
 type LayerMap = Map<string, Layer>
@@ -46,15 +48,20 @@ function elementLabel(el: CartoElement): string {
   return 'Polygone'
 }
 
-export default function CartographieEditor({ plan: initialPlan, onBack }: Props) {
+export default function CartographieEditor({ plan: initialPlan, onBack, backLabel = '← Retour' }: Props) {
   const mapRef = useRef<HTMLDivElement>(null)
+  const mapCaptureRef = useRef<HTMLDivElement>(null)
   const mapInstance = useRef<LeafletMap | null>(null)
   const layersRef = useRef<LayerMap>(new Map())
   const parcelLayerRef = useRef<Layer | null>(null)
   const LRef = useRef<typeof import('leaflet') | null>(null)
+  const toolRef = useRef<CartoTool>('equipment')
+  const selectedEquipmentIdRef = useRef(EQUIPEMENTS_ANC[0].id)
+  const draftPointsRef = useRef<LatLng[]>([])
 
   const [plan, setPlan] = useState<CartoPlan>(initialPlan)
-  const [tool, setTool] = useState<CartoTool>('select')
+  const [mapReady, setMapReady] = useState(false)
+  const [tool, setTool] = useState<CartoTool>('equipment')
   const [selectedEquipmentId, setSelectedEquipmentId] = useState(EQUIPEMENTS_ANC[0].id)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -62,9 +69,22 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'saving'>('idle')
   const [showProps, setShowProps] = useState(true)
   const [showEquip, setShowEquip] = useState(true)
+  const [leaving, setLeaving] = useState(false)
 
   const selected = plan.elements.find(e => e.id === selectedId) || null
   const filteredEquip = filterEquipements(search)
+
+  useEffect(() => { toolRef.current = tool }, [tool])
+  useEffect(() => { selectedEquipmentIdRef.current = selectedEquipmentId }, [selectedEquipmentId])
+  useEffect(() => { draftPointsRef.current = draftPoints }, [draftPoints])
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1023px)')
+    if (mq.matches) {
+      setShowEquip(false)
+      setShowProps(false)
+    }
+  }, [])
 
   const persist = useCallback((next: CartoPlan) => {
     setPlan(next)
@@ -75,12 +95,34 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
 
   const updateElements = useCallback((updater: (els: CartoElement[]) => CartoElement[]) => {
     setPlan(prev => {
-      const next = { ...prev, elements: updater(prev.elements) }
+      const next = { ...prev, elements: updater(prev.elements), updatedAt: new Date().toISOString() }
       saveCartoPlan(next)
       setSaveStatus('saved')
       return next
     })
   }, [])
+
+  const finishDraft = useCallback(() => {
+    const currentTool = toolRef.current
+    const points = draftPointsRef.current
+    if (points.length < 2) return
+    const id = newElementId()
+    if (currentTool === 'line') {
+      const el: CartoLine = { id, type: 'line', points, nom: 'Ligne', ...DEFAULT_CARTO_STYLE }
+      updateElements(els => [...els, el])
+      setSelectedId(id)
+    } else if (currentTool === 'polygon' && points.length >= 3) {
+      const el: CartoPolygon = {
+        id, type: 'polygon', points, nom: 'Zone', ...DEFAULT_CARTO_STYLE,
+      }
+      updateElements(els => [...els, el])
+      setSelectedId(id)
+    } else {
+      return
+    }
+    setDraftPoints([])
+    setTool('select')
+  }, [updateElements])
 
   // Init Leaflet
   useEffect(() => {
@@ -113,6 +155,7 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
 
       if (plan.parcelleGeometry) {
         const geoLayer = L.geoJSON(plan.parcelleGeometry as GeoJSON.GeoJsonObject, {
+          interactive: false,
           style: { color: '#f97316', weight: 3, fillColor: '#f97316', fillOpacity: 0.08 },
         })
         geoLayer.addTo(map)
@@ -120,10 +163,13 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
         const b = boundsFromGeometry(plan.parcelleGeometry)
         if (b) map.fitBounds(b, { padding: [40, 40], maxZoom: 19 })
       }
+
+      if (!cancelled) setMapReady(true)
     }
     init()
     return () => {
       cancelled = true
+      setMapReady(false)
       mapInstance.current?.remove()
       mapInstance.current = null
       layersRef.current.clear()
@@ -134,7 +180,7 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
   useEffect(() => {
     const map = mapInstance.current
     const L = LRef.current
-    if (!map || !L) return
+    if (!map || !L || !mapReady) return
 
     layersRef.current.forEach(layer => layer.remove())
     layersRef.current.clear()
@@ -151,7 +197,11 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
           iconAnchor: [16, 16],
         })
         const marker = L.marker([el.position.lat, el.position.lng], { icon, draggable: tool === 'select' })
-        marker.on('click', () => { setSelectedId(el.id); setTool('select') })
+        marker.on('click', (ev) => {
+          L.DomEvent.stopPropagation(ev)
+          setSelectedId(el.id)
+          setTool('select')
+        })
         marker.on('dragend', () => {
           const pos = marker.getLatLng()
           updateElements(els => els.map(e => e.id === el.id && e.type === 'equipment'
@@ -167,7 +217,11 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
           weight: el.weight,
           dashArray: dashArray(el.lineStyle),
         })
-        poly.on('click', () => { setSelectedId(el.id); setTool('select') })
+        poly.on('click', (ev) => {
+          L.DomEvent.stopPropagation(ev)
+          setSelectedId(el.id)
+          setTool('select')
+        })
         layer = poly
       }
 
@@ -179,7 +233,11 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
           fillColor: el.fillColor || el.color,
           fillOpacity: el.fillOpacity ?? 0.2,
         })
-        poly.on('click', () => { setSelectedId(el.id); setTool('select') })
+        poly.on('click', (ev) => {
+          L.DomEvent.stopPropagation(ev)
+          setSelectedId(el.id)
+          setTool('select')
+        })
         layer = poly
       }
 
@@ -192,7 +250,11 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
           fillColor: el.fillColor || el.color,
           fillOpacity: el.fillOpacity ?? 0.2,
         })
-        circle.on('click', () => { setSelectedId(el.id); setTool('select') })
+        circle.on('click', (ev) => {
+          L.DomEvent.stopPropagation(ev)
+          setSelectedId(el.id)
+          setTool('select')
+        })
         layer = circle
       }
 
@@ -203,7 +265,11 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
           iconAnchor: [0, 0],
         })
         const marker = L.marker([el.position.lat, el.position.lng], { icon, draggable: tool === 'select' })
-        marker.on('click', () => { setSelectedId(el.id); setTool('select') })
+        marker.on('click', (ev) => {
+          L.DomEvent.stopPropagation(ev)
+          setSelectedId(el.id)
+          setTool('select')
+        })
         marker.on('dragend', () => {
           const pos = marker.getLatLng()
           updateElements(els => els.map(e => e.id === el.id && e.type === 'text'
@@ -222,7 +288,6 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
       }
     }
 
-    // Draft preview
     if (draftPoints.length > 0) {
       if (tool === 'line') {
         const draft = L.polyline(draftPoints.map(p => [p.lat, p.lng] as [number, number]), {
@@ -239,35 +304,42 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
         layersRef.current.set('__draft__', draft)
       }
     }
-  }, [plan.elements, selectedId, tool, draftPoints, updateElements])
+  }, [plan.elements, selectedId, tool, draftPoints, updateElements, mapReady])
 
-  // Map click handler
+  // Map click handler — attach après init Leaflet (mapReady)
   useEffect(() => {
     const map = mapInstance.current
-    if (!map) return
+    if (!map || !mapReady) return
 
     function onClick(e: { latlng: { lat: number; lng: number } }) {
       const pos = { lat: e.latlng.lat, lng: e.latlng.lng }
+      const currentTool = toolRef.current
 
-      if (tool === 'equipment') {
+      if (currentTool === 'select') {
+        setSelectedId(null)
+        return
+      }
+
+      if (currentTool === 'equipment') {
+        const eqId = selectedEquipmentIdRef.current
         const el: CartoEquipment = {
           id: newElementId(),
           type: 'equipment',
-          equipmentId: selectedEquipmentId,
+          equipmentId: eqId,
           position: pos,
-          nom: findEquipement(selectedEquipmentId)?.label,
+          nom: findEquipement(eqId)?.label,
         }
         updateElements(els => [...els, el])
         setSelectedId(el.id)
         return
       }
 
-      if (tool === 'line' || tool === 'polygon') {
+      if (currentTool === 'line' || currentTool === 'polygon') {
         setDraftPoints(prev => [...prev, pos])
         return
       }
 
-      if (tool === 'circle') {
+      if (currentTool === 'circle') {
         const el: CartoCircle = {
           id: newElementId(),
           type: 'circle',
@@ -284,7 +356,7 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
         return
       }
 
-      if (tool === 'text') {
+      if (currentTool === 'text') {
         const text = window.prompt('Texte à afficher :', 'Légende')
         if (!text?.trim()) return
         const el: CartoText = {
@@ -301,28 +373,21 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
       }
     }
 
-    map.on('click', onClick)
-    return () => { map.off('click', onClick) }
-  }, [tool, selectedEquipmentId, updateElements])
-
-  function finishDraft() {
-    if (draftPoints.length < 2) return
-    const id = newElementId()
-    if (tool === 'line') {
-      const el: CartoLine = { id, type: 'line', points: draftPoints, nom: 'Ligne', ...DEFAULT_CARTO_STYLE }
-      updateElements(els => [...els, el])
-      setSelectedId(id)
-    }
-    if (tool === 'polygon' && draftPoints.length >= 3) {
-      const el: CartoPolygon = {
-        id, type: 'polygon', points: draftPoints, nom: 'Zone', ...DEFAULT_CARTO_STYLE,
+    function onDblClick(e: { originalEvent: Event }) {
+      const currentTool = toolRef.current
+      if (currentTool === 'line' || currentTool === 'polygon') {
+        e.originalEvent.preventDefault()
+        finishDraft()
       }
-      updateElements(els => [...els, el])
-      setSelectedId(id)
     }
-    setDraftPoints([])
-    setTool('select')
-  }
+
+    map.on('click', onClick)
+    map.on('dblclick', onDblClick)
+    return () => {
+      map.off('click', onClick)
+      map.off('dblclick', onDblClick)
+    }
+  }, [updateElements, mapReady, finishDraft])
 
   function deleteSelected() {
     if (!selectedId) return
@@ -352,23 +417,28 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
     updateElements(els => els.map(e => e.id === selectedId ? { ...e, ...patch } as CartoElement : e))
   }
 
-  async function handleExport() {
-    const container = mapRef.current?.parentElement
-    if (!container) return
-    const canvas = await html2canvas(container, {
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#f8fafc',
-      scale: 2,
-    })
-    const dataUrl = canvas.toDataURL('image/png')
-    const next = { ...plan, exportImage: dataUrl }
-    persist(next)
+  async function saveExportImage(): Promise<CartoPlan> {
+    const dataUrl = await captureCartoMapImage(mapCaptureRef.current)
+    if (!dataUrl) return plan
+    const next = persistCartoExportImage(plan, dataUrl)
+    setPlan(next)
+    setSaveStatus('saved')
+    return next
+  }
 
+  async function handleExport() {
+    const next = await saveExportImage()
+    if (!next.exportImage) return
     const a = document.createElement('a')
-    a.href = dataUrl
+    a.href = next.exportImage
     a.download = `plan-anc-${plan.sectionCadastrale}-${plan.numeroParcelle}.png`
     a.click()
+  }
+
+  async function handleBack() {
+    setLeaving(true)
+    await saveExportImage()
+    onBack()
   }
 
   const tools: { id: CartoTool; label: string; icon: string }[] = [
@@ -380,11 +450,24 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
     { id: 'text', label: 'Texte', icon: 'T' },
   ]
 
+  const hintText = tool === 'equipment'
+    ? `Cliquez sur la carte pour placer : ${findEquipement(selectedEquipmentId)?.label}`
+    : tool === 'line'
+      ? 'Cliquez pour tracer — double-clic ou « Terminer » pour valider'
+      : tool === 'polygon'
+        ? 'Cliquez les sommets (min. 3) — double-clic pour valider'
+        : tool === 'circle'
+          ? 'Cliquez le centre du cercle'
+          : tool === 'text'
+            ? 'Cliquez pour placer un texte / légende'
+            : 'Choisissez un équipement ou un outil ci-dessus'
+
   return (
     <div className="flex flex-col h-[100dvh] bg-[#0a1a3d] text-white">
-      {/* Header */}
       <header className="bg-[#0e2a52] text-white px-3 py-2 sm:px-4 flex items-center gap-2 shrink-0 z-20">
-        <button type="button" onClick={onBack} className="text-sm hover:opacity-80 shrink-0">← Retour</button>
+        <button type="button" onClick={handleBack} disabled={leaving} className="text-sm hover:opacity-80 shrink-0 disabled:opacity-50">
+          {leaving ? 'Enregistrement…' : backLabel}
+        </button>
         <div className="flex-1 min-w-0">
           <div className="text-xs opacity-70 truncate">Éditeur de carte</div>
           <div className="font-bold text-sm truncate">
@@ -392,20 +475,19 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
           </div>
         </div>
         <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${saveStatus === 'saved' ? 'bg-emerald-500/30 text-emerald-200' : 'bg-white/10'}`}>
-          {saveStatus === 'saving' ? '…' : 'Sauvegardé'}
+          {saveStatus === 'saving' || leaving ? '…' : 'Sauvegardé'}
         </span>
         <button type="button" onClick={handleExport} className="bg-orange-500 hover:bg-orange-600 px-3 py-1.5 rounded-lg text-sm font-bold shrink-0">
           Exporter
         </button>
       </header>
 
-      {/* Toolbar */}
       <div className="bg-[#0e2a52]/90 backdrop-blur-xl border-b border-white/10 px-2 py-1.5 flex items-center gap-1 overflow-x-auto shrink-0">
         {tools.map(t => (
           <button
             key={t.id}
             type="button"
-            onClick={() => { setTool(t.id); setDraftPoints([]) }}
+            onClick={() => { setTool(t.id); if (t.id !== 'line' && t.id !== 'polygon') setDraftPoints([]) }}
             className={`px-2.5 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap ${tool === t.id ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30' : 'bg-white/5 text-white/70 hover:bg-white/10'}`}
             title={t.label}
           >
@@ -416,23 +498,27 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
         <button type="button" onClick={deleteSelected} disabled={!selectedId} className="px-2 py-1.5 text-sm text-red-300 disabled:opacity-40">Supprimer</button>
         <button type="button" onClick={clearAll} className="px-2 py-1.5 text-sm text-white/60">Tout effacer</button>
         <button type="button" onClick={centerMap} className="px-2 py-1.5 text-sm text-white/60">Centrer</button>
-        {(tool === 'line' || tool === 'polygon') && draftPoints.length >= 2 && (
+        {tool === 'line' && draftPoints.length >= 2 && (
           <button type="button" onClick={finishDraft} className="px-2 py-1.5 text-sm bg-blue-600 text-white rounded-lg font-bold">
             Terminer ({draftPoints.length} pts)
           </button>
         )}
-        <button type="button" onClick={() => setShowEquip(v => !v)} className="ml-auto px-2 py-1.5 text-xs text-slate-500 lg:hidden">
+        {tool === 'polygon' && draftPoints.length >= 3 && (
+          <button type="button" onClick={finishDraft} className="px-2 py-1.5 text-sm bg-blue-600 text-white rounded-lg font-bold">
+            Terminer ({draftPoints.length} pts)
+          </button>
+        )}
+        <button type="button" onClick={() => setShowEquip(v => !v)} className="ml-auto px-2 py-1.5 text-xs text-white/50 lg:hidden">
           {showEquip ? '◧' : '◨'} Équip.
         </button>
-        <button type="button" onClick={() => setShowProps(v => !v)} className="px-2 py-1.5 text-xs text-slate-500 lg:hidden">
+        <button type="button" onClick={() => setShowProps(v => !v)} className="px-2 py-1.5 text-xs text-white/50 lg:hidden">
           {showProps ? '◨' : '◧'} Props
         </button>
       </div>
 
       <div className="flex flex-1 min-h-0 relative">
-        {/* Équipements */}
         <aside className={`${showEquip ? 'flex' : 'hidden'} lg:flex flex-col w-56 xl:w-64 bg-[#102a43]/95 backdrop-blur-xl border-r border-white/10 shrink-0 absolute lg:relative inset-y-0 left-0 z-10 shadow-lg lg:shadow-none`}>
-          <div className="p-3 border-b border-slate-100">
+          <div className="p-3 border-b border-white/10">
             <h2 className="font-bold text-white text-sm mb-2">Équipements</h2>
             <input
               value={search}
@@ -460,21 +546,13 @@ export default function CartographieEditor({ plan: initialPlan, onBack }: Props)
           </ul>
         </aside>
 
-        {/* Carte */}
-        <div className="flex-1 relative min-w-0">
-          <div ref={mapRef} className="absolute inset-0 z-0" />
-          {tool !== 'select' && (
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[500] bg-[#102a43]/95 backdrop-blur px-3 py-1.5 rounded-full text-xs font-semibold text-white/80 shadow ring-1 ring-white/10">
-              {tool === 'equipment' && `Cliquez pour placer : ${findEquipement(selectedEquipmentId)?.label}`}
-              {tool === 'line' && 'Cliquez pour tracer — Terminer pour valider'}
-              {tool === 'polygon' && 'Cliquez les sommets — min. 3 points'}
-              {tool === 'circle' && 'Cliquez le centre du cercle'}
-              {tool === 'text' && 'Cliquez pour placer un texte'}
-            </div>
-          )}
+        <div ref={mapCaptureRef} className="flex-1 relative min-w-0 min-h-[280px]">
+          <div ref={mapRef} className="absolute inset-0 z-[1]" />
+          <div className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 z-[500] max-w-[92%] bg-[#102a43]/95 backdrop-blur px-3 py-1.5 rounded-full text-xs font-semibold text-white/90 shadow ring-1 ring-white/10 text-center">
+            {hintText}
+          </div>
         </div>
 
-        {/* Propriétés */}
         <aside className={`${showProps ? 'flex' : 'hidden'} lg:flex flex-col w-56 xl:w-72 bg-[#102a43]/95 backdrop-blur-xl border-l border-white/10 shrink-0 absolute lg:relative inset-y-0 right-0 z-10 shadow-lg lg:shadow-none`}>
           <div className="p-3 border-b border-white/10">
             <h2 className="font-bold text-white text-sm">Propriétés</h2>
@@ -542,7 +620,7 @@ function PropertiesEditor({
         <>
           <label className="block space-y-1">
             <span className="text-xs font-semibold text-slate-500">Texte</span>
-            <input value={element.text} onChange={e => onPatch({ text: e.target.value })} className="prop-input" />
+            <input value={element.text} onChange={e => onPatch({ text: e.target.value })} className="spanc-input text-sm" />
           </label>
           <label className="block space-y-1">
             <span className="text-xs font-semibold text-slate-500">Taille : {element.fontSize}px</span>
@@ -638,10 +716,6 @@ function PropertiesEditor({
       <button type="button" onClick={onDelete} className="w-full mt-4 py-2.5 rounded-xl bg-red-500/10 text-red-300 border border-red-400/30 text-sm font-bold hover:bg-red-500/20">
         Supprimer cet élément
       </button>
-
-      <style jsx>{`
-        .spanc-label { display:block; margin-bottom:0.25rem; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.2em; color:rgba(253,186,116,0.8); }
-      `}</style>
     </div>
   )
 }
