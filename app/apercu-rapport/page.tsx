@@ -134,7 +134,7 @@ export default function ApercuRapportPage() {
                 </div>
                 <div className="text-right text-[9px] opacity-80">03 86 83 12 88</div>
               </div>
-              <div className="p-4 space-y-3 bg-white min-h-[300px]">
+              <div className="light-surface p-4 space-y-3 bg-white min-h-[300px]">
                 <div className="flex rounded-lg overflow-hidden border-2 border-[#007B7F]/30 text-[9px]">
                   <div className="w-[34%] bg-[#1A3351] text-white p-2.5 flex flex-col justify-between">
                     <div>

@@ -878,7 +878,7 @@ export default function NouveauControleSPANCPage() {
                 onChange={e => setDictee(e.target.value)}
                 rows={6}
                 placeholder="Dicte tes observations : état de la fosse, niveau de boues, ventilation, état de l'épandage, rejet, date dernière vidange…"
-                className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-4 py-3 text-base"
+                className="spanc-input text-base py-3"
               />
               <div className="flex justify-between text-xs text-white/50">
                 <span>{dictee.length} car.</span>
@@ -905,7 +905,7 @@ export default function NouveauControleSPANCPage() {
                       <input
                         value={p.legende}
                         onChange={e => setLegende(i, e.target.value)}
-                        className="w-full text-[11px] border border-white/10 rounded mt-1 px-1.5 py-0.5"
+                        className="spanc-input text-[11px] mt-1 py-0.5"
                       />
                       <button onClick={() => removePhoto(i)} type="button" aria-label="Supprimer"
                         className="absolute top-1 right-1 bg-white/95 w-7 h-7 rounded-full text-red-600 font-bold shadow flex items-center justify-center text-sm">✕</button>
@@ -919,7 +919,7 @@ export default function NouveauControleSPANCPage() {
                   📸 Prendre photo
                   <input id="add-cam" type="file" accept="image/*" capture="environment" onChange={e => { addPhoto(e.target.files?.[0] || null); (e.target as HTMLInputElement).value = '' }} className="hidden" />
                 </label>
-                <label htmlFor="add-gal" className="bg-white border-2 border-[#0e2a52] text-white px-4 py-3.5 rounded-xl text-sm font-bold cursor-pointer active:scale-95 transition text-center">
+                <label htmlFor="add-gal" className="spanc-btn-secondary px-4 py-3.5 rounded-xl text-sm font-bold cursor-pointer active:scale-95 transition text-center">
                   🖼 Galerie
                   <input id="add-gal" type="file" accept="image/*" multiple onChange={async e => {
                     const files = Array.from(e.target.files || [])
@@ -1002,7 +1002,7 @@ export default function NouveauControleSPANCPage() {
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
               <RapportSPANCDownloadButton rapport={rapport} photos={photos.map(p => ({ url: p.dataUrl, legende: p.legende }))} planImage={getPlanImageUrl()} label="⬇ Télécharger le PDF" />
-              <button onClick={resetAll} className="bg-white border-2 border-[#0e2a52] text-white px-5 py-3 rounded-lg font-bold hover:bg-white/5">
+              <button onClick={resetAll} className="spanc-btn-secondary px-5 py-3 rounded-lg font-bold">
                 + Nouveau contrôle
               </button>
             </div>
@@ -1072,7 +1072,7 @@ function NumberField({ label, value, onChange, placeholder }: {
         }}
         placeholder={placeholder}
         inputMode="numeric"
-        className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-3 py-2.5 text-base transition-colors"
+        className="spanc-input"
       />
     </div>
   )
@@ -1151,14 +1151,14 @@ function RapportEditor({
           <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1">Constat technique</label>
           <textarea value={rapport.constatTechnique} rows={4}
             onChange={e => onPatch('constatTechnique', e.target.value)}
-            className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-3 py-2 text-sm" />
+            className="spanc-input text-sm" />
         </div>
 
         <div>
           <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1">Évaluation de conformité</label>
           <textarea value={rapport.evaluationConformite} rows={5}
             onChange={e => onPatch('evaluationConformite', e.target.value)}
-            className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-3 py-2 text-sm" />
+            className="spanc-input text-sm" />
         </div>
       </section>
 
@@ -1172,7 +1172,7 @@ function RapportEditor({
                 <input value={p.label} onChange={e => onPatchPC(i, { label: e.target.value })}
                   className="flex-1 outline-none border-none text-sm bg-transparent text-white" />
                 <select value={p.statut} onChange={e => onPatchPC(i, { statut: e.target.value as StatutPointControle })}
-                  className="text-xs font-bold border border-white/10 rounded px-2 py-1 bg-white text-slate-900">
+                  className="spanc-select text-xs font-bold py-1">
                   <option value="conforme">✓ Conforme</option>
                   <option value="non_conforme">✗ Non conforme</option>
                   <option value="non_verifie">· Non vérifié</option>
@@ -1195,7 +1195,7 @@ function RapportEditor({
           onChange={e => onPatch('prescriptions', e.target.value.split('\n').map(s => s.trim()).filter(Boolean))}
           rows={4}
           placeholder="Une prescription par ligne…"
-          className="w-full border-2 border-white/10 focus:border-red-500 outline-none rounded-xl px-3 py-2 text-sm"
+          className="spanc-input text-sm"
         />
       </section>
 
@@ -1203,7 +1203,7 @@ function RapportEditor({
         <h3 className="text-base font-bold text-white">Observations du technicien</h3>
         <textarea value={rapport.observationsTechnicien} rows={3}
           onChange={e => onPatch('observationsTechnicien', e.target.value)}
-          className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-3 py-2 text-sm" />
+          className="spanc-input text-sm" />
       </section>
 
       <section className="spanc-card p-5 space-y-3">
@@ -1219,7 +1219,7 @@ function RapportEditor({
                   onPatch('prochaineEcheance', prochaineEcheanceParDefaut(a, rapport.typeControle))
                 }}
                 className={`p-2.5 rounded-xl border-2 text-left transition-all ${
-                  active ? `${meta.tone} shadow-md` : 'border-white/10 bg-white text-white/70 hover:border-slate-300'
+                  active ? `${meta.tone} shadow-md` : 'border-white/20 bg-white/10 text-white/80 hover:border-orange-400/50 hover:bg-white/15'
                 }`}>
                 <span className="text-lg mr-1">{meta.icon}</span>
                 <span className="text-xs font-bold">{meta.label}</span>
@@ -1230,13 +1230,13 @@ function RapportEditor({
         <div>
           <label className="block text-xs font-bold text-white/60 uppercase tracking-wider mb-1">Prochaine échéance</label>
           <input value={rapport.prochaineEcheance} onChange={e => onPatch('prochaineEcheance', e.target.value)}
-            placeholder="ex: 10 ans" className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-3 py-2.5 text-base" />
+            placeholder="ex: 10 ans" className="spanc-input" />
         </div>
       </section>
 
       <div className="flex gap-3 pb-4">
         <button onClick={onBack} className="flex-1 bg-white/5 text-white/80 py-3 rounded-xl font-bold text-sm">← Modifier la saisie</button>
-        <button onClick={onRegenerate} className="flex-1 bg-white border-2 border-blue-500 text-orange-200 py-3 rounded-xl font-bold text-sm">🔄 Régénérer</button>
+        <button onClick={onRegenerate} className="flex-1 spanc-btn-secondary py-3 text-sm">🔄 Régénérer</button>
         <button onClick={onContinue} className="flex-[2] bg-[#0e2a52] text-white py-3 rounded-xl font-bold text-sm">Voir le rapport →</button>
       </div>
     </div>

@@ -205,7 +205,7 @@ export default function DevisPage() {
               value={devis.objet}
               onChange={e => setDevis({ ...devis, objet: e.target.value })}
               rows={3}
-              className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-lg px-3 py-2 text-sm transition-colors"
+              className="spanc-input text-sm transition-colors"
             />
           </section>
 
@@ -235,20 +235,20 @@ export default function DevisPage() {
                         <input
                           value={l.section || ''}
                           onChange={e => updateLine(i, { section: e.target.value })}
-                          className="w-full border border-white/10 rounded px-2 py-1 text-xs"
+                          className="spanc-input text-sm text-xs"
                         />
                       </td>
                       <td className="py-1 pr-2">
                         <input
                           value={l.designation}
                           onChange={e => updateLine(i, { designation: e.target.value })}
-                          className="w-full border border-white/10 rounded px-2 py-1 mb-1"
+                          className="spanc-input text-sm mb-1"
                         />
                         <input
                           value={l.description || ''}
                           onChange={e => updateLine(i, { description: e.target.value })}
                           placeholder="précisions (optionnel)"
-                          className="w-full border border-white/10 rounded px-2 py-1 text-xs text-white/75"
+                          className="spanc-input text-sm text-xs text-white/75"
                         />
                       </td>
                       <td className="py-1 pr-2">
@@ -256,14 +256,14 @@ export default function DevisPage() {
                           type="number" step="0.01" min="0"
                           value={l.qte}
                           onChange={e => updateLine(i, { qte: Number(e.target.value) })}
-                          className="w-full border border-white/10 rounded px-2 py-1"
+                          className="spanc-input text-sm"
                         />
                       </td>
                       <td className="py-1 pr-2">
                         <input
                           value={l.unite || ''}
                           onChange={e => updateLine(i, { unite: e.target.value })}
-                          className="w-full border border-white/10 rounded px-2 py-1"
+                          className="spanc-input text-sm"
                         />
                       </td>
                       <td className="py-1 pr-2">
@@ -271,7 +271,7 @@ export default function DevisPage() {
                           type="number" step="0.01" min="0"
                           value={l.pu_ht}
                           onChange={e => updateLine(i, { pu_ht: Number(e.target.value) })}
-                          className="w-full border border-white/10 rounded px-2 py-1 text-right"
+                          className="spanc-input text-sm text-right"
                         />
                       </td>
                       <td className="py-1 pr-2 text-right font-semibold text-white">
@@ -303,7 +303,7 @@ export default function DevisPage() {
                       type="number" min="0" max="30" step="0.1"
                       value={tvaTaux}
                       onChange={e => setDevis({ ...devis, tva_taux: Number(e.target.value) })}
-                      className="w-16 border border-white/10 rounded px-2 py-1 text-right"
+                      className="spanc-input w-16 text-right text-sm py-1"
                     />
                     <span>%</span>
                     <span className="font-semibold ml-2">{tva.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>
@@ -349,7 +349,7 @@ export default function DevisPage() {
                   type="number" min="0" max="100" step="1"
                   value={devis.modalites?.acompte_pct ?? 30}
                   onChange={e => setDevis({ ...devis, modalites: { ...(devis.modalites || {}), acompte_pct: Number(e.target.value) } })}
-                  className="w-full border border-white/10 rounded px-2 py-1 mt-1"
+                  className="spanc-input text-sm mt-1"
                 />
               </label>
               <Field
@@ -402,7 +402,7 @@ export default function DevisPage() {
             onChange={e => setTranscription(e.target.value)}
             rows={6}
             placeholder="Dicte les prestations avec leurs quantités et prix…"
-            className="w-full border-2 border-white/10 focus:ring-orange-400 outline-none rounded-xl px-4 py-3 text-base transition-colors"
+            className="spanc-input text-base py-3 transition-colors"
           />
 
           <div className="flex justify-between text-xs text-white/50">
@@ -436,7 +436,7 @@ export default function DevisPage() {
                 type="date"
                 value={dateDevis}
                 onChange={e => setDateDevis(e.target.value)}
-                className="w-full border border-white/10 rounded px-2 py-1.5 mt-1"
+                className="spanc-input text-sm.5 mt-1"
               />
             </label>
             <Field
@@ -478,7 +478,7 @@ function Field({
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full border border-white/10 rounded px-2 py-1.5 mt-1"
+        className="spanc-input text-sm.5 mt-1"
       />
     </label>
   )

@@ -318,7 +318,7 @@ export default function AttestationPage() {
               value={data.objet}
               onChange={e => setData({ ...data, objet: e.target.value })}
               rows={3}
-              className="w-full border-2 border-white/10 focus:border-[#0f2e5c] outline-none rounded-lg px-3 py-2 text-sm"
+              className="spanc-input text-sm"
             />
           </section>
 
@@ -329,7 +329,7 @@ export default function AttestationPage() {
               value={data.methode}
               onChange={e => setData({ ...data, methode: e.target.value })}
               rows={6}
-              className="w-full border-2 border-white/10 focus:border-[#0f2e5c] outline-none rounded-lg px-3 py-2 text-sm"
+              className="spanc-input text-sm"
             />
           </section>
 
@@ -341,7 +341,7 @@ export default function AttestationPage() {
               onChange={e => setData({ ...data, cadreReglementaire: e.target.value })}
               rows={4}
               placeholder="Paragraphe juridique : DTU 64.1, arrêtés ANC, portée vente immobilière, délais de mise en conformité…"
-              className="w-full border-2 border-white/10 focus:border-[#a78346] outline-none rounded-lg px-3 py-2 text-sm"
+              className="spanc-input text-sm"
             />
             <div className="text-xs uppercase tracking-wide text-white/75 mt-2 mb-1">
               Références citées (une par ligne)
@@ -351,7 +351,7 @@ export default function AttestationPage() {
               onChange={e => setData({ ...data, referencesNormatives: e.target.value.split('\n').map(s => s.trim()).filter(Boolean) })}
               rows={6}
               placeholder="NF DTU 64.1 P1-1 (mars 2013) — …"
-              className="w-full border-2 border-white/10 focus:border-[#a78346] outline-none rounded-lg px-3 py-2 text-xs font-mono"
+              className="spanc-input text-xs font-mono"
             />
           </section>
 
@@ -375,13 +375,13 @@ export default function AttestationPage() {
                   {data.observations.map((o, i) => (
                     <tr key={i} className="border-b border-white/5 align-top">
                       <td className="py-1 pr-2">
-                        <input value={o.label} onChange={e => updateObservation(i, { label: e.target.value })} className="w-full border border-white/10 rounded px-2 py-1" />
+                        <input value={o.label} onChange={e => updateObservation(i, { label: e.target.value })} className="spanc-input text-sm" />
                       </td>
                       <td className="py-1 pr-2">
-                        <input value={o.valeur} onChange={e => updateObservation(i, { valeur: e.target.value })} className="w-full border border-white/10 rounded px-2 py-1" />
+                        <input value={o.valeur} onChange={e => updateObservation(i, { valeur: e.target.value })} className="spanc-input text-sm" />
                       </td>
                       <td className="py-1 pr-2">
-                        <select value={o.statut} onChange={e => updateObservation(i, { statut: e.target.value as any })} className="w-full border border-white/10 rounded px-2 py-1">
+                        <select value={o.statut} onChange={e => updateObservation(i, { statut: e.target.value as any })} className="spanc-input text-sm">
                           <option value="ok">✓ OK</option>
                           <option value="ko">✗ KO</option>
                           <option value="info">• Info</option>
@@ -420,7 +420,7 @@ export default function AttestationPage() {
                   value={(data.anomalies || []).join('\n')}
                   onChange={e => setData({ ...data, anomalies: e.target.value.split('\n').filter(Boolean) })}
                   rows={4}
-                  className="w-full border-2 border-white/10 focus:border-red-500 outline-none rounded-lg px-3 py-2 text-sm"
+                  className="spanc-input text-sm"
                 />
               </div>
               <div>
@@ -429,7 +429,7 @@ export default function AttestationPage() {
                   value={(data.recommandations || []).join('\n')}
                   onChange={e => setData({ ...data, recommandations: e.target.value.split('\n').filter(Boolean) })}
                   rows={3}
-                  className="w-full border-2 border-white/10 focus:border-amber-500 outline-none rounded-lg px-3 py-2 text-sm"
+                  className="spanc-input text-sm"
                 />
               </div>
             </section>
@@ -442,14 +442,14 @@ export default function AttestationPage() {
               value={data.conclusion}
               onChange={e => setData({ ...data, conclusion: e.target.value })}
               rows={4}
-              className="w-full border-2 border-white/10 focus:border-[#0f2e5c] outline-none rounded-lg px-3 py-2 text-sm"
+              className="spanc-input text-sm"
             />
             <div className="text-xs uppercase tracking-wide text-white/75 mt-2 mb-1">Réserves (facultatif)</div>
             <textarea
               value={data.reserves || ''}
               onChange={e => setData({ ...data, reserves: e.target.value })}
               rows={2}
-              className="w-full border-2 border-white/10 focus:border-amber-500 outline-none rounded-lg px-3 py-2 text-sm"
+              className="spanc-input text-sm"
             />
           </section>
 
@@ -558,13 +558,13 @@ export default function AttestationPage() {
                   value={ville}
                   onChange={setVille}
                   onSelect={c => { setVille(c.nom); if (!codePostal) setCodePostal(c.cp) }}
-                  className="w-full border border-white/10 rounded px-2 py-1.5"
+                  className="spanc-input text-sm.5"
                 />
               </div>
             </label>
             <label className="block text-sm">
               <span className="text-xs uppercase tracking-wide text-white/75">Date de l&apos;inspection</span>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full border border-white/10 rounded px-2 py-1.5 mt-1" />
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} className="spanc-input text-sm.5 mt-1" />
             </label>
           </div>
         </section>
@@ -583,7 +583,7 @@ export default function AttestationPage() {
           </div>
           <div>
             <label className="text-xs uppercase tracking-wide text-white/75">Prétraitement</label>
-            <select value={pretraitement} onChange={e => setPretraitement(e.target.value as TypePretraitement | '')} className="w-full border border-white/10 rounded px-2 py-1.5 mt-1 bg-white">
+            <select value={pretraitement} onChange={e => setPretraitement(e.target.value as TypePretraitement | '')} className="spanc-input text-sm.5 mt-1 bg-white">
               <option value="">— (facultatif)</option>
               {(Object.keys(PRETRAITEMENT_LABELS) as TypePretraitement[]).map(t => (
                 <option key={t} value={t}>{PRETRAITEMENT_LABELS[t]}</option>
@@ -592,7 +592,7 @@ export default function AttestationPage() {
           </div>
           <div>
             <label className="text-xs uppercase tracking-wide text-white/75">Traitement</label>
-            <select value={traitement} onChange={e => setTraitement(e.target.value as TypeTraitement | '')} className="w-full border border-white/10 rounded px-2 py-1.5 mt-1 bg-white">
+            <select value={traitement} onChange={e => setTraitement(e.target.value as TypeTraitement | '')} className="spanc-input text-sm.5 mt-1 bg-white">
               <option value="">— (facultatif)</option>
               {(Object.keys(TRAITEMENT_LABELS) as TypeTraitement[]).map(t => (
                 <option key={t} value={t}>{TRAITEMENT_LABELS[t]}</option>
@@ -601,7 +601,7 @@ export default function AttestationPage() {
           </div>
           <div>
             <label className="text-xs uppercase tracking-wide text-white/75">Exutoire / rejet</label>
-            <select value={rejet} onChange={e => setRejet(e.target.value as TypeRejet | '')} className="w-full border border-white/10 rounded px-2 py-1.5 mt-1 bg-white">
+            <select value={rejet} onChange={e => setRejet(e.target.value as TypeRejet | '')} className="spanc-input text-sm.5 mt-1 bg-white">
               <option value="">— (facultatif)</option>
               {(Object.keys(REJET_LABELS) as TypeRejet[]).map(t => (
                 <option key={t} value={t}>{REJET_LABELS[t]}</option>
@@ -635,7 +635,7 @@ export default function AttestationPage() {
             onChange={e => setTranscription(e.target.value)}
             rows={6}
             placeholder="Ex : Diagnostic ANC vente immobilière au 1 chemin des Oliviers. Filière en place : fosse toutes eaux 3 m³ béton + préfiltre + filtre à sable drainé 25 m². Ouverture des regards, contrôle des niveaux, repérage de l'exutoire. Bon état général, dernière vidange 2024. Aucune odeur. Conforme avec recommandation d'entretien régulier du préfiltre."
-            className="w-full border-2 border-white/10 focus:border-[#0f2e5c] outline-none rounded-xl px-4 py-3 text-base"
+            className="spanc-input text-base py-3"
           />
           <div className="flex justify-between text-xs text-white/50">
             <span>{transcription.length} car.</span>
@@ -661,7 +661,7 @@ export default function AttestationPage() {
                   <input
                     value={p.legende}
                     onChange={e => setPhotos(prev => prev.map((x, idx) => idx === i ? { ...x, legende: e.target.value } : x))}
-                    className="w-full text-[11px] border border-white/10 rounded mt-1 px-1.5 py-0.5"
+                    className="spanc-input text-[11px] mt-1 py-0.5"
                   />
                   <button onClick={() => removePhoto(i)} className="absolute top-1 right-1 bg-white rounded-full w-6 h-6 text-red-600 font-bold shadow">×</button>
                 </div>
@@ -696,7 +696,7 @@ function Field({ label, value, onChange, placeholder }: { label: string; value: 
   return (
     <label className="block text-sm">
       <span className="text-xs uppercase tracking-wide text-white/75">{label}</span>
-      <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="w-full border border-white/10 rounded px-2 py-1.5 mt-1" />
+      <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="spanc-input text-sm.5 mt-1" />
     </label>
   )
 }

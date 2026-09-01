@@ -604,7 +604,7 @@ function PropertiesEditor({
 
       {element.type === 'circle' && (
         <label className="block space-y-1">
-          <span className="text-xs font-semibold text-slate-500">Rayon : {element.radiusM} m</span>
+          <span className="text-xs font-semibold text-white/55">Rayon : {element.radiusM} m</span>
           <input
             type="range"
             min={1}
@@ -619,11 +619,11 @@ function PropertiesEditor({
       {element.type === 'text' && (
         <>
           <label className="block space-y-1">
-            <span className="text-xs font-semibold text-slate-500">Texte</span>
+            <span className="text-xs font-semibold text-white/55">Texte</span>
             <input value={element.text} onChange={e => onPatch({ text: e.target.value })} className="spanc-input text-sm" />
           </label>
           <label className="block space-y-1">
-            <span className="text-xs font-semibold text-slate-500">Taille : {element.fontSize}px</span>
+            <span className="text-xs font-semibold text-white/55">Taille : {element.fontSize}px</span>
             <input
               type="range" min={10} max={24} value={element.fontSize}
               onChange={e => onPatch({ fontSize: parseInt(e.target.value, 10) })}
@@ -636,7 +636,7 @@ function PropertiesEditor({
       {(element.type === 'line' || element.type === 'polygon' || element.type === 'circle') && (
         <>
           <div>
-            <span className="text-xs font-semibold text-slate-500 block mb-1">Couleur</span>
+            <span className="text-xs font-semibold text-white/55 block mb-1">Couleur</span>
             <div className="flex flex-wrap gap-1.5">
               {CARTO_COLORS.map(c => (
                 <button
@@ -651,7 +651,7 @@ function PropertiesEditor({
           </div>
 
           <div>
-            <span className="text-xs font-semibold text-slate-500 block mb-1">Trait</span>
+            <span className="text-xs font-semibold text-white/55 block mb-1">Trait</span>
             <div className="flex gap-1">
               {(['solid', 'dashed', 'dotted'] as LineStyle[]).map(s => (
                 <button
@@ -667,7 +667,7 @@ function PropertiesEditor({
           </div>
 
           <div>
-            <span className="text-xs font-semibold text-slate-500 block mb-1">Épaisseur</span>
+            <span className="text-xs font-semibold text-white/55 block mb-1">Épaisseur</span>
             <div className="flex gap-1">
               {([1, 2, 3, 4] as LineWeight[]).map(w => (
                 <button
@@ -684,7 +684,7 @@ function PropertiesEditor({
 
           {(element.type === 'polygon' || element.type === 'circle') && (
             <label className="block space-y-1">
-              <span className="text-xs font-semibold text-slate-500">Opacité remplissage : {Math.round((element.fillOpacity ?? 0.2) * 100)}%</span>
+              <span className="text-xs font-semibold text-white/55">Opacité remplissage : {Math.round((element.fillOpacity ?? 0.2) * 100)}%</span>
               <input
                 type="range" min={0} max={100}
                 value={Math.round((element.fillOpacity ?? 0.2) * 100)}
@@ -698,7 +698,7 @@ function PropertiesEditor({
 
       {element.type === 'text' && (
         <div>
-          <span className="text-xs font-semibold text-slate-500 block mb-1">Couleur texte</span>
+          <span className="text-xs font-semibold text-white/55 block mb-1">Couleur texte</span>
           <div className="flex flex-wrap gap-1.5">
             {CARTO_COLORS.map(c => (
               <button

@@ -22,6 +22,38 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
+/* Champs de formulaire — fond sombre par défaut (évite texte blanc sur fond blanc navigateur) */
+@layer base {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="image"]),
+  select,
+  textarea {
+    background-color: #152a4a;
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.25);
+    color-scheme: dark;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  select option {
+    background-color: #152a4a;
+    color: #ffffff;
+  }
+
+  /* Surfaces claires volontaires (aperçu mock client, etc.) */
+  .light-surface input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="hidden"]),
+  .light-surface select,
+  .light-surface textarea {
+    background-color: #ffffff;
+    color: #1a1f2e;
+    border-color: #c7cfdb;
+    color-scheme: light;
+  }
+}
+
 /* Anti-zoom iOS sur focus input */
 input, select, textarea {
   font-size: 16px !important;
@@ -34,6 +66,10 @@ input, select, textarea {
 
   .spanc-input {
     @apply w-full rounded-xl bg-[#152a4a] px-3 py-2.5 text-white outline-none ring-1 ring-white/25 transition-colors placeholder:text-white/55 focus:ring-2 focus:ring-orange-400;
+  }
+
+  .spanc-textarea {
+    @apply spanc-input min-h-[80px] resize-y;
   }
 
   .spanc-select {
