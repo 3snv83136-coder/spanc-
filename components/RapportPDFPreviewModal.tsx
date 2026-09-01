@@ -1,6 +1,6 @@
 'use client'
 import { PDFViewer } from '@react-pdf/renderer'
-import { RapportSPANCDocument } from '@/components/RapportSPANCPDF'
+import { RapportSPANCDocument, spancEnteteUrl } from '@/components/RapportSPANCPDF'
 import type { RapportSPANC } from '@/lib/types/spanc'
 
 interface Props {
@@ -35,7 +35,7 @@ export default function RapportPDFPreviewModal({ open, onClose, rapport }: Props
         </div>
         <div className="flex-1 bg-slate-200">
           <PDFViewer width="100%" height="100%" showToolbar style={{ border: 'none' }}>
-            <RapportSPANCDocument rapport={rapport} />
+            <RapportSPANCDocument rapport={rapport} enteteImage={spancEnteteUrl()} />
           </PDFViewer>
         </div>
       </div>

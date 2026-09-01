@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "assets:copy": "node scripts/copy-brand-assets.mjs",
+    "prebuild": "node scripts/copy-brand-assets.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

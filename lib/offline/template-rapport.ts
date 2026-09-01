@@ -10,6 +10,7 @@ import {
   type AvisConformite,
   type FiliereSPANC,
   type RapportSPANC,
+  type StatutPointControle,
   type TypeControle,
   type UsagerSPANC,
 } from '@/lib/types/spanc'
@@ -38,16 +39,24 @@ export function buildOfflineRapport(params: {
   technicien: string
   dateControle: string
   photos: string[]
+  photoMaison?: string
+  pointsTerrain?: Record<string, { statut: StatutPointControle; photoUrl?: string }>
 }): RapportSPANC {
   const numeroRapport = genererNumeroRapport()
   const typeMeta = TYPE_CONTROLE_LABELS[params.typeControle]
   const avis = params.avisAgent
   const prochaineEcheance = prochaineEcheanceParDefaut(avis, params.typeControle)
 
-  const pointsControles = POINTS_CONTROLES_STANDARDS.map(p => ({
-    label: p.label,
-    statut: params.checkboxes[p.key] ? 'conforme' as const : 'non_verifie' as const,
-  }))
+  const pointsControles = POINTS_CONTROLES_STANDARDS.map(p => {
+    const terrain = params.pointsTerrain?.[p.key]
+    const statut = terrain?.statut ?? (params.checkboxes[p.key] ? 'conforme' as const : 'non_verifie' as const)
+    return {
+      key: p.key,
+      label: p.label,
+      statut,
+      photoUrl: terrain?.photoUrl,
+    }
+  })
 
   const adresse = `${params.usager.adresse}, ${params.usager.codePostal} ${params.usager.commune}`.trim()
   const filiere = filiereDescription(params.filiere, params.niveauBoues)
@@ -92,5 +101,6 @@ export function buildOfflineRapport(params: {
     avisConformite: avis,
     prochaineEcheance,
     photos: params.photos,
+    photoMaison: params.photoMaison,
   }
 }

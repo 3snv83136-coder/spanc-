@@ -43,16 +43,17 @@ La collecte des eaux usées domestiques est assurée par des canalisations enter
 Le niveau de boues dans la fosse reste modéré compte tenu de la faible occupation du logement (2 personnes permanentes pour une installation dimensionnée à 6 équivalents-habitants). Aucune vidange n'a été réalisée à ce jour selon les déclarations du propriétaire.
 
 Le massif d'infiltration est accessible. Absence de circulation de véhicules sur la zone d'épandage. Distance supérieure à 35 m d'un captage d'eau potable connue sur la parcelle voisine.`,
-  pointsControles: POINTS_CONTROLES_STANDARDS.map((p, i) => {
+  photoMaison: '/demo/maison-villeneuve.jpg',
+  pointsControles: POINTS_CONTROLES_STANDARDS.map(p => {
     const nonConformes = new Set(['vidange_recente'])
-    const nonVerifies = new Set<string>()
+    const avecPhoto = new Set(['regard_accessible', 'absence_ecoulement', 'absence_odeurs'])
     return {
+      key: p.key,
       label: p.label,
       statut: nonConformes.has(p.key)
         ? 'non_conforme' as const
-        : nonVerifies.has(p.key)
-          ? 'non_verifie' as const
-          : 'conforme' as const,
+        : 'conforme' as const,
+      photoUrl: avecPhoto.has(p.key) ? '/demo/maison-villeneuve.jpg' : undefined,
     }
   }),
   evaluationConformite: `Au regard des éléments constatés lors de la visite, l'installation ne présente pas de dysfonctionnement majeur au sens de l'arrêté du 27 avril 2012.

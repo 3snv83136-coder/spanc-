@@ -101,11 +101,11 @@ export default function ApercuRapportPage() {
               <h3 className="font-bold text-white text-base">Points à valider avec nous</h3>
               <ul className="space-y-2 list-none">
                 {[
-                  'En-tête et identité visuelle SPANC',
-                  'Lisibilité des tableaux et bandeaux de section',
-                  'Bandeau coloré de l\'avis de conformité',
-                  'Taille des polices et espacement',
-                  'Bloc signature et mentions légales',
+                  'En-tête et identité visuelle SPANC (teal Grand Sénonais)',
+                  'Containers colorés par section (identification, filière, constat…)',
+                  'Photo du bien sur la page identification',
+                  'Photos par point de contrôle (contrôle périodique)',
+                  'Chapitres sur pages séparées — sans coupure',
                 ].map(item => (
                   <li key={item} className="flex gap-2">
                     <span className="text-orange-400">◆</span>
@@ -119,56 +119,75 @@ export default function ApercuRapportPage() {
           {/* Aperçu visuel mock + actions */}
           <section className="lg:col-span-3 space-y-4">
             <div
-              className="rounded-3xl bg-white text-[#1a1f2e] shadow-2xl shadow-black/40 overflow-hidden ring-1 ring-white/20 cursor-pointer group"
+              className="rounded-3xl bg-white text-[#1a1f2e] shadow-2xl shadow-black/40 overflow-hidden ring-1 ring-white/20 cursor-pointer group flex"
               onClick={() => setShowPdf(true)}
               role="button"
               tabIndex={0}
               onKeyDown={e => e.key === 'Enter' && setShowPdf(true)}
             >
-              {/* Miniature style page A4 */}
-              <div className="bg-[#0e2a52] px-5 py-3 flex justify-between items-end text-white text-[10px]">
+              <div className="w-1.5 bg-[#007B7F] shrink-0" />
+              <div className="flex-1 min-w-0">
+              <div className="bg-[#007B7F] px-5 py-3 flex justify-between items-end text-white text-[10px] border-b-[3px] border-[#f97316]">
                 <div>
                   <div className="font-bold uppercase tracking-wide">SPANC · Grand Sénonais</div>
-                  <div className="opacity-70">Service Public d&apos;ANC</div>
+                  <div className="text-teal-100/80 text-[9px]">Service Public d&apos;ANC</div>
                 </div>
-                <div className="opacity-70 text-right">03 86 65 89 00</div>
+                <div className="text-right text-[9px] opacity-80">03 86 83 12 88</div>
               </div>
-              <div className="p-5 space-y-3 bg-white min-h-[320px]">
-                <div className="text-center space-y-1">
-                  <div className="text-[9px] tracking-[0.3em] uppercase text-[#a78346] font-bold">Rapport de contrôle officiel</div>
-                  <div className="text-lg font-black text-[#0e2a52] uppercase">Rapport SPANC</div>
-                  <div className="text-xs font-bold text-[#0e2a52]">{type.label}</div>
-                </div>
-                <div className="flex justify-between text-[9px] bg-[#eef2f8] border border-[#c7cfdb] p-2 rounded">
-                  <span><span className="text-[#5a6270] uppercase">N° </span><strong>{rapport.numeroRapport}</strong></span>
-                  <span><span className="text-[#5a6270] uppercase">Date </span><strong>06/08/2026</strong></span>
-                </div>
-                <div className="rounded border-2 border-emerald-600 bg-emerald-50 p-3 text-[10px]">
-                  <div className="bg-emerald-600 text-white inline-block px-2 py-0.5 text-[8px] font-bold uppercase mb-1">✅ Avis : Conforme</div>
-                  <div className="font-bold text-[#1a1f2e]">Installation conforme</div>
-                </div>
-                <div className="flex gap-1 items-stretch">
-                  <div className="w-6 bg-[#0a2047] flex items-center justify-center text-white text-xs font-bold">1</div>
-                  <div className="flex-1 bg-[#0e2a52] text-white text-[9px] font-bold uppercase py-1.5 px-2">Identification du bien</div>
-                </div>
-                <div className="border border-[#c7cfdb] text-[9px]">
-                  <div className="flex border-b border-[#c7cfdb]">
-                    <div className="w-[38%] p-1.5 bg-[#eef2f8] font-bold text-[#0e2a52] border-r border-[#c7cfdb]">Propriétaire</div>
-                    <div className="flex-1 p-1.5">Marc PILLU</div>
+              <div className="p-4 space-y-3 bg-white min-h-[300px]">
+                <div className="flex rounded-lg overflow-hidden border-2 border-[#007B7F]/30 text-[9px]">
+                  <div className="w-[34%] bg-[#1A3351] text-white p-2.5 flex flex-col justify-between">
+                    <div>
+                      <div className="text-[#7dd3d6] uppercase tracking-wider text-[7px]">N° rapport</div>
+                      <div className="font-bold mt-1">{rapport.numeroRapport}</div>
+                    </div>
+                    <div className="text-teal-200/70">06/08/2026</div>
                   </div>
-                  <div className="flex">
-                    <div className="w-[38%] p-1.5 font-bold text-[#0e2a52] border-r border-[#c7cfdb]">Adresse</div>
-                    <div className="flex-1 p-1.5">1 Chemin des Accins — 89500 Villeneuve-sur-Yonne</div>
+                  <div className="flex-1 bg-[#e6f7f7] p-2.5">
+                    <div className="text-[#007B7F] font-bold uppercase tracking-widest text-[7px]">Rapport officiel</div>
+                    <div className="font-black text-[#1A3351] uppercase text-sm mt-1">Diagnostic ANC</div>
+                    <div className="text-[#007B7F] font-bold mt-0.5">{type.label}</div>
                   </div>
                 </div>
-                <div className="text-[9px] text-[#5a6270] line-clamp-3 leading-relaxed">
-                  {rapport.constatTechnique.slice(0, 220)}…
+                <div className="flex rounded-lg overflow-hidden border-2 border-emerald-300">
+                  <div className="w-2 bg-emerald-600" />
+                  <div className="flex-1 bg-emerald-50 p-2.5 text-[10px]">
+                    <span className="bg-emerald-600 text-white text-[7px] font-bold uppercase px-2 py-0.5 rounded-full">✅ Conforme</span>
+                    <div className="font-bold mt-1">Installation conforme</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="bg-[#f97316] text-white text-[8px] font-bold w-6 h-6 rounded-full flex items-center justify-center">1</span>
+                  <span className="bg-[#007B7F] text-white text-[8px] font-bold uppercase flex-1 py-1.5 px-2 rounded">Identification & photo du bien</span>
+                </div>
+                <div className="grid grid-cols-5 gap-1.5 text-[8px]">
+                  <div className="col-span-3 space-y-1">
+                    <div className="bg-[#b8e8ea] border-2 border-[#007B7F] rounded p-1.5">
+                      <div className="text-[#005f63] font-bold uppercase text-[6px]">Propriétaire</div>
+                      <div className="font-bold">Marc PILLU</div>
+                    </div>
+                    <div className="bg-[#c7d9f0] border-2 border-[#1A3351] rounded p-1.5">
+                      <div className="text-[#1A3351] font-bold uppercase text-[6px]">Adresse</div>
+                      <div className="font-bold leading-tight">1 Chemin des Accins — 89500 Villeneuve-sur-Yonne</div>
+                    </div>
+                  </div>
+                  {rapport.photoMaison && (
+                    <div className="col-span-2 rounded overflow-hidden border-2 border-[#007B7F]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={rapport.photoMaison} alt="" className="w-full h-16 object-cover" />
+                      <div className="bg-[#1A3351] text-white text-[6px] text-center py-0.5 font-bold">Photo du bien</div>
+                    </div>
+                  )}
+                </div>
+                <div className="text-[8px] text-[#64748b] line-clamp-2 leading-relaxed bg-[#ddd6fe] border-2 border-[#7c3aed] rounded p-2">
+                  {rapport.constatTechnique.slice(0, 160)}…
                 </div>
               </div>
-              <div className="bg-slate-100 border-t border-slate-200 py-4 text-center group-hover:bg-orange-50 transition-colors">
-                <span className="text-sm font-bold text-[#0e2a52] group-hover:text-orange-600">
+              <div className="bg-[#e6f7f7] border-t-2 border-[#007B7F]/30 py-3 text-center group-hover:bg-[#b8e8ea] transition-colors">
+                <span className="text-sm font-bold text-[#1A3351] group-hover:text-[#007B7F]">
                   Cliquez pour ouvrir l&apos;aperçu PDF complet →
                 </span>
+              </div>
               </div>
             </div>
 

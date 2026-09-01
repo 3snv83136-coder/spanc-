@@ -6,6 +6,11 @@ import VoiceRecorder from "@/components/VoiceRecorder"
 import RedactionAidePicker, { appendRedactionText } from "@/components/RedactionAidePicker"
 import CommuneSensCombobox from "@/components/CommuneSensCombobox"
 import CadastreFields from "@/components/CadastreFields"
+import GrilleControlePeriodique, {
+  initPointsTerrain,
+  pointsTerrainToCheckboxes,
+  type PointTerrainState,
+} from "@/components/GrilleControlePeriodique"
 import { useOffline } from "@/components/OfflineProvider"
 import {
   TYPE_CONTROLE_LABELS,
@@ -38,6 +43,22 @@ import type { SyncResult } from "@/lib/offline/sync"
 
 function communeInsee(nom: string): string | null {
   return findCommuneByName(nom)?.insee ?? null
+}
+
+function buildPointsControlesFromTerrain(
+  points: Record<string, PointTerrainState>,
+  apiPoints?: RapportSPANC['pointsControles'],
+): RapportSPANC['pointsControles'] {
+  return POINTS_CONTROLES_STANDARDS.map(std => {
+    const local = points[std.key]
+    const api = apiPoints?.find(p => p.key === std.key || p.label === std.label)
+    return {
+      key: std.key,
+      label: std.label,
+      statut: api?.statut ?? local?.statut ?? 'non_verifie',
+      photoUrl: local?.photoUrl ?? api?.photoUrl,
+    }
+  })
 }
 
 const RapportSPANCDownloadButton = dynamic(() => import("@/components/RapportSPANCPDF"), { ssr: false })
@@ -137,6 +158,8 @@ export default function NouveauControleSPANCPage() {
   const [avisAgent, setAvisAgent] = useState<AvisConformite>('conforme')
   const [dictee, setDictee] = useState('')
   const [photos, setPhotos] = useState<PhotoItem[]>([])
+  const [photoMaison, setPhotoMaison] = useState<PhotoItem | null>(null)
+  const [pointsTerrain, setPointsTerrain] = useState<Record<string, PointTerrainState>>(initPointsTerrain)
   const [planRev, setPlanRev] = useState(0)
 
   // Technicien & date
@@ -281,8 +304,48 @@ export default function NouveauControleSPANCPage() {
     setPhotos(prev => prev.map((p, idx) => idx === i ? { ...p, legende: l } : p))
   }
 
+  async function setPhotoMaisonFile(file: File | null) {
+    if (!file) { setPhotoMaison(null); return }
+    try {
+      const compressed = await compressImage(file, 1400, 0.82)
+      const dataUrl = await fileToDataUrl(compressed)
+      setPhotoMaison({ file: compressed, dataUrl, preview: URL.createObjectURL(compressed), legende: 'Photo du bien' })
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erreur photo maison')
+    }
+  }
+
+  async function setPointPhoto(key: string, file: File | null) {
+    if (!file) {
+      setPointsTerrain(prev => ({
+        ...prev,
+        [key]: { ...prev[key], photoUrl: undefined, preview: undefined },
+      }))
+      return
+    }
+    try {
+      const compressed = await compressImage(file, 1200, 0.78)
+      const dataUrl = await fileToDataUrl(compressed)
+      setPointsTerrain(prev => ({
+        ...prev,
+        [key]: { ...prev[key], statut: prev[key]?.statut ?? 'non_verifie', photoUrl: dataUrl, preview: dataUrl },
+      }))
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erreur photo point')
+    }
+  }
+
+  function patchPointTerrain(key: string, patch: Partial<PointTerrainState>) {
+    setPointsTerrain(prev => {
+      const next = { ...prev, [key]: { ...prev[key], ...patch } }
+      setCheckboxes(pointsTerrainToCheckboxes(next))
+      return next
+    })
+  }
+
   const showFiliere = typeControle !== 'conception'
   const showCheckboxes = typeControle === 'periodique' || typeControle === 'vente'
+  const showPointsPhotos = typeControle === 'periodique'
 
   function buildUsager(): UsagerSPANC {
     return {
@@ -311,7 +374,7 @@ export default function NouveauControleSPANCPage() {
       usager: buildUsager(),
       filiere: buildFiliere(),
       dictee,
-      checkboxes,
+      checkboxes: pointsTerrainToCheckboxes(pointsTerrain),
       niveauBoues,
       avisAgent,
       technicien,
@@ -325,6 +388,10 @@ export default function NouveauControleSPANCPage() {
     const offlineRapport = buildOfflineRapport({
       ...payload,
       photos: photos.map(p => p.dataUrl),
+      photoMaison: photoMaison?.dataUrl,
+      pointsTerrain: Object.fromEntries(
+        Object.entries(pointsTerrain).map(([k, v]) => [k, { statut: v.statut, photoUrl: v.photoUrl }]),
+      ),
     })
     const label = `Rapport ${offlineRapport.usager.commune} — ${offlineRapport.numeroRapport}`
     await enqueueGenerateJob(
@@ -361,6 +428,8 @@ export default function NouveauControleSPANCPage() {
       const fullRapport: RapportSPANC = {
         id: data.rapport.numeroRapport,
         ...data.rapport,
+        pointsControles: buildPointsControlesFromTerrain(pointsTerrain, data.rapport.pointsControles),
+        photoMaison: photoMaison?.dataUrl,
         photos: photos.map(p => p.dataUrl),
       }
       setRapport(fullRapport)
@@ -460,6 +529,8 @@ export default function NouveauControleSPANCPage() {
     setDateInstallation(''); setDerniereVidange('')
     setCheckboxes({}); setNiveauBoues(20); setAvisAgent('conforme')
     setDictee(''); setPhotos([])
+    setPhotoMaison(null)
+    setPointsTerrain(initPointsTerrain())
     void clearControleDraft()
     setDraftSavedAt(null)
   }
@@ -649,6 +720,25 @@ export default function NouveauControleSPANCPage() {
                   <input type="date" value={dateControle} onChange={e => setDateControle(e.target.value)} className="spanc-input" />
                 </div>
               </div>
+
+              <div className="rounded-2xl border-2 border-[#007B7F]/40 bg-[#007B7F]/10 p-4 space-y-3">
+                <div>
+                  <h3 className="font-bold text-[#7dd3d6]">Photo du bien / de la maison</h3>
+                  <p className="text-xs text-white/55">Apparaît en grand sur le rapport PDF (page identification).</p>
+                </div>
+                {photoMaison ? (
+                  <div className="flex flex-col sm:flex-row gap-3 items-start">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photoMaison.preview} alt="" className="w-full sm:w-48 h-32 object-cover rounded-xl ring-2 ring-[#007B7F]" />
+                    <button type="button" onClick={() => setPhotoMaison(null)} className="text-sm text-red-300 font-bold underline">Supprimer</button>
+                  </div>
+                ) : (
+                  <label className="flex items-center justify-center h-28 rounded-xl border-2 border-dashed border-[#007B7F]/50 bg-[#007B7F]/15 cursor-pointer hover:bg-[#007B7F]/25">
+                    <span className="text-sm font-bold text-[#7dd3d6]">📷 Photographier la façade / le bien</span>
+                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={e => void setPhotoMaisonFile(e.target.files?.[0] ?? null)} />
+                  </label>
+                )}
+              </div>
             </section>
 
             {/* Filière ANC */}
@@ -712,20 +802,34 @@ export default function NouveauControleSPANCPage() {
             )}
 
             {/* Grille de contrôle */}
-            {showCheckboxes && (
+            {showCheckboxes && showPointsPhotos && (
+              <section className="spanc-card p-5 space-y-4">
+                <div>
+                  <h2 className="text-xl font-black text-white">Contrôle périodique — étapes terrain</h2>
+                  <p className="text-sm text-white/60 mt-1">Pour chaque point : statut + photo du constat (intégrée au rapport PDF).</p>
+                </div>
+                <GrilleControlePeriodique
+                  points={pointsTerrain}
+                  onChange={patchPointTerrain}
+                  onPhoto={(key, file) => void setPointPhoto(key, file)}
+                />
+              </section>
+            )}
+
+            {showCheckboxes && !showPointsPhotos && (
               <section className="spanc-card p-5 space-y-2">
                 <h2 className="text-xl font-black text-white">Grille de contrôle terrain</h2>
                 <p className="text-xs text-white/60">Coche les points conformes.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
                   {POINTS_CONTROLES_STANDARDS.map(p => (
-                    <label key={p.key} className={`spanc-check ${checkboxes[p.key] ? 'spanc-check-active' : ''}`}>
+                    <label key={p.key} className={`spanc-check ${pointsTerrain[p.key]?.statut === 'conforme' ? 'spanc-check-active' : ''}`}>
                       <input
                         type="checkbox"
-                        checked={!!checkboxes[p.key]}
-                        onChange={e => setCheckboxes(prev => ({ ...prev, [p.key]: e.target.checked }))}
+                        checked={pointsTerrain[p.key]?.statut === 'conforme'}
+                        onChange={e => patchPointTerrain(p.key, { statut: e.target.checked ? 'conforme' : 'non_verifie' })}
                         className="mt-0.5 h-4 w-4 accent-emerald-400"
                       />
-                      <span className={`text-sm ${checkboxes[p.key] ? 'text-emerald-200 font-semibold' : 'text-white/90'}`}>{p.label}</span>
+                      <span className={`text-sm ${pointsTerrain[p.key]?.statut === 'conforme' ? 'text-emerald-200 font-semibold' : 'text-white/90'}`}>{p.label}</span>
                     </label>
                   ))}
                 </div>
@@ -1015,6 +1119,14 @@ function RapportEditor({
           </span>
         </div>
 
+        {rapport.photoMaison && (
+          <div className="rounded-xl border-2 border-[#007B7F]/50 bg-[#007B7F]/10 p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-[#7dd3d6] mb-2">Photo du bien (PDF)</div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={rapport.photoMaison} alt="" className="w-full max-h-48 object-cover rounded-lg ring-2 ring-[#007B7F]" />
+          </div>
+        )}
+
         <div className="space-y-2">
           <label className="block text-xs font-bold text-white/60 uppercase tracking-wider">
             Champ cible pour l&apos;aide à la rédaction
@@ -1053,17 +1165,23 @@ function RapportEditor({
       {/* Points de contrôle */}
       <section className="spanc-card p-5 space-y-2">
         <h3 className="text-base font-bold text-white">Points de contrôle</h3>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {rapport.pointsControles.map((p, i) => (
-            <div key={i} className="flex items-center gap-2 border border-white/10 rounded-lg px-3 py-2">
-              <input value={p.label} onChange={e => onPatchPC(i, { label: e.target.value })}
-                className="flex-1 outline-none border-none text-sm" />
-              <select value={p.statut} onChange={e => onPatchPC(i, { statut: e.target.value as StatutPointControle })}
-                className="text-xs font-bold border border-white/10 rounded px-2 py-1 bg-white">
-                <option value="conforme">✓ Conforme</option>
-                <option value="non_conforme">✗ Non conforme</option>
-                <option value="non_verifie">· Non vérifié</option>
-              </select>
+            <div key={i} className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <input value={p.label} onChange={e => onPatchPC(i, { label: e.target.value })}
+                  className="flex-1 outline-none border-none text-sm bg-transparent text-white" />
+                <select value={p.statut} onChange={e => onPatchPC(i, { statut: e.target.value as StatutPointControle })}
+                  className="text-xs font-bold border border-white/10 rounded px-2 py-1 bg-white text-slate-900">
+                  <option value="conforme">✓ Conforme</option>
+                  <option value="non_conforme">✗ Non conforme</option>
+                  <option value="non_verifie">· Non vérifié</option>
+                </select>
+              </div>
+              {p.photoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={p.photoUrl} alt="" className="w-full max-h-40 object-cover rounded-lg ring-2 ring-[#007B7F]/50" />
+              )}
             </div>
           ))}
         </div>

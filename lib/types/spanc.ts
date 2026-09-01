@@ -60,8 +60,11 @@ export interface FiliereSPANC {
 }
 
 export interface PointControle {
+  key?: string
   label: string
   statut: StatutPointControle
+  /** Photo constat terrain (contrôle périodique) */
+  photoUrl?: string
 }
 
 export interface RapportSPANC {
@@ -82,6 +85,8 @@ export interface RapportSPANC {
   avisConformite: AvisConformite
   prochaineEcheance: string             // ex: "10 ans", "4 ans", "1 an"
   photos: string[]                      // URLs ou data URLs
+  /** Photo de la façade / du bien contrôlé */
+  photoMaison?: string
   pdfUrl?: string
   envoye?: boolean
   dateEnvoi?: string
