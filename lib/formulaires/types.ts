@@ -25,6 +25,8 @@ export interface FormulaireBase {
   adresseProjet?: string
   communeProjet?: string
   messageAgent?: string
+  /** Signature usager (data URL) */
+  signatureClient?: string
 }
 
 export interface FormulaireConceptionDemande extends FormulaireBase {

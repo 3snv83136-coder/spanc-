@@ -1,5 +1,5 @@
 import React from 'react'
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
 import {
   FORMULAIRE_META,
   type FormulaireSPANC,
@@ -51,6 +51,7 @@ const s = StyleSheet.create({
   sigHead: { backgroundColor: C.navy, color: C.white, fontFamily: 'Helvetica-Bold', fontSize: 9, padding: 8, textTransform: 'uppercase' },
   sigBody: { padding: 12, minHeight: 70 },
   sigHint: { fontSize: 8, color: C.muted, marginBottom: 8 },
+  sigImg: { width: 180, height: 50, objectFit: 'contain', marginTop: 6 },
   footer: { position: 'absolute', bottom: 20, left: 32, right: 32, borderTopWidth: 1, borderTopColor: C.navy, paddingTop: 6, flexDirection: 'row', justifyContent: 'space-between' },
   footerText: { fontSize: 7, color: C.muted },
   notice: { marginTop: 10, padding: 8, backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#fdba74', fontSize: 8, color: '#9a3412' },
@@ -170,8 +171,16 @@ export function FormulaireSPANCDocument({ formulaire }: Props) {
               <Text style={s.sigHint}>
                 Je soussigné(e) {c.prenom} {c.nom}, certifie l&apos;exactitude des renseignements portés sur ce formulaire.
               </Text>
-              <Text style={s.sigHint}>Fait à ____________________, le ____/____/________</Text>
-              <Text style={{ marginTop: 20, fontSize: 8, color: C.muted }}>Signature :</Text>
+              <Text style={s.sigHint}>Fait à {c.commune || '____________________'}, le {fmtDate(formulaire.date)}</Text>
+              {formulaire.signatureClient ? (
+                <>
+                  <Text style={{ marginTop: 8, fontSize: 8, color: C.muted }}>Signature électronique :</Text>
+                  {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                  <Image src={formulaire.signatureClient} style={s.sigImg} />
+                </>
+              ) : (
+                <Text style={{ marginTop: 20, fontSize: 8, color: C.muted }}>Signature :</Text>
+              )}
             </View>
           </View>
         </View>

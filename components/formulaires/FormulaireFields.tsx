@@ -9,16 +9,19 @@ interface Props {
   form: FormulaireSPANC
   fields: FormField[]
   onChange: (form: FormulaireSPANC) => void
+  readOnlyKeys?: Set<string>
 }
 
-export default function FormulaireFields({ form, fields, onChange }: Props) {
+export default function FormulaireFields({ form, fields, onChange, readOnlyKeys }: Props) {
   function update(key: string, value: unknown) {
+    if (readOnlyKeys?.has(key) || fields.find(f => f.key === key)?.readOnly) return
     onChange(setNestedValue(form as unknown as Record<string, unknown>, key, value) as unknown as FormulaireSPANC)
   }
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {fields.map(field => {
+        const isReadOnly = field.readOnly || readOnlyKeys?.has(field.key)
         const raw = getNestedValue(form as unknown as Record<string, unknown>, field.key)
         const id = `ff-${field.key.replace(/\./g, '-')}`
 
@@ -32,7 +35,8 @@ export default function FormulaireFields({ form, fields, onChange }: Props) {
                 rows={field.rows ?? 3}
                 value={String(raw ?? '')}
                 onChange={e => update(field.key, e.target.value)}
-                className="spanc-input min-h-[80px]"
+                readOnly={isReadOnly}
+                className={`spanc-input min-h-[80px] ${isReadOnly ? 'opacity-60 cursor-not-allowed' : ''}`}
                 placeholder={field.placeholder}
               />
             </label>
@@ -51,6 +55,7 @@ export default function FormulaireFields({ form, fields, onChange }: Props) {
                     <button
                       key={opt.value}
                       type="button"
+                      disabled={isReadOnly}
                       onClick={() => {
                         const next = active
                           ? selected.filter(v => v !== opt.value)
@@ -80,6 +85,7 @@ export default function FormulaireFields({ form, fields, onChange }: Props) {
                     <button
                       key={opt.value}
                       type="button"
+                      disabled={isReadOnly}
                       onClick={() => update(field.key, opt.value)}
                       className={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${
                         active
@@ -104,7 +110,8 @@ export default function FormulaireFields({ form, fields, onChange }: Props) {
                 id={id}
                 value={String(raw ?? '')}
                 onChange={e => update(field.key, e.target.value)}
-                className="spanc-select"
+                disabled={isReadOnly}
+                className={`spanc-select ${isReadOnly ? 'opacity-60 cursor-not-allowed' : ''}`}
               >
                 <option value="">— Choisir —</option>
                 {field.options.map(o => (
@@ -144,7 +151,8 @@ export default function FormulaireFields({ form, fields, onChange }: Props) {
               type={inputType}
               value={String(raw ?? '')}
               onChange={e => update(field.key, e.target.value)}
-              className="spanc-input"
+              readOnly={isReadOnly}
+              className={`spanc-input ${isReadOnly ? 'opacity-60 cursor-not-allowed' : ''}`}
               placeholder={field.placeholder}
             />
           </label>
