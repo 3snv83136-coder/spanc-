@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import dynamic from "next/dynamic"
 import VoiceRecorder from "@/components/VoiceRecorder"
+import RedactionAidePicker, { appendRedactionText } from "@/components/RedactionAidePicker"
 import CommuneSensCombobox from "@/components/CommuneSensCombobox"
 import CadastreFields from "@/components/CadastreFields"
 import { useOffline } from "@/components/OfflineProvider"
@@ -763,6 +764,11 @@ export default function NouveauControleSPANCPage() {
               <div className="bg-blue-500/10 border border-blue-400/30 rounded-xl p-3">
                 <VoiceRecorder onTranscription={t => setDictee(prev => prev ? prev + ' ' + t : t)} />
               </div>
+              <RedactionAidePicker
+                compact
+                targetLabel="la dictée"
+                onInsert={text => setDictee(prev => appendRedactionText(prev, text))}
+              />
               <textarea
                 value={dictee}
                 onChange={e => setDictee(e.target.value)}
@@ -978,6 +984,27 @@ function RapportEditor({
   onBack: () => void
   onRegenerate: () => void
 }) {
+  type RedactionTarget = 'constatTechnique' | 'evaluationConformite' | 'prescriptions' | 'observationsTechnicien'
+  const [redactionTarget, setRedactionTarget] = useState<RedactionTarget>('constatTechnique')
+
+  const redactionTargets: { key: RedactionTarget; label: string }[] = [
+    { key: 'constatTechnique', label: 'Constat technique' },
+    { key: 'evaluationConformite', label: 'Évaluation de conformité' },
+    { key: 'prescriptions', label: 'Prescriptions' },
+    { key: 'observationsTechnicien', label: 'Observations technicien' },
+  ]
+
+  function insertRedaction(text: string) {
+    if (redactionTarget === 'prescriptions') {
+      onPatch('prescriptions', [...rapport.prescriptions, text])
+      return
+    }
+    const current = rapport[redactionTarget] as string
+    onPatch(redactionTarget, appendRedactionText(current, text))
+  }
+
+  const activeTargetLabel = redactionTargets.find(t => t.key === redactionTarget)?.label ?? ''
+
   return (
     <div className="space-y-4">
       <section className="spanc-card p-5 space-y-3">
@@ -986,6 +1013,26 @@ function RapportEditor({
           <span className={`text-xs font-bold px-2 py-1 rounded-md ${AVIS_LABELS[rapport.avisConformite].tone}`}>
             {AVIS_LABELS[rapport.avisConformite].icon} {AVIS_LABELS[rapport.avisConformite].short}
           </span>
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-xs font-bold text-white/60 uppercase tracking-wider">
+            Champ cible pour l&apos;aide à la rédaction
+          </label>
+          <select
+            value={redactionTarget}
+            onChange={e => setRedactionTarget(e.target.value as RedactionTarget)}
+            className="spanc-select text-sm max-w-md"
+          >
+            {redactionTargets.map(t => (
+              <option key={t.key} value={t.key}>{t.label}</option>
+            ))}
+          </select>
+          <RedactionAidePicker
+            compact
+            targetLabel={activeTargetLabel}
+            onInsert={insertRedaction}
+          />
         </div>
 
         <div>
